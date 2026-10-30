@@ -1,7 +1,8 @@
 # simple apps
 
-a small collection of quiet, local-first web apps.
+a small collection of seven quiet, local-first web apps.
 
+- **to:do** — https://mumbo235.github.io/simple-apps/to-do/
 - **notes** — https://mumbo235.github.io/simple-apps/notes/
 - **focus** — https://mumbo235.github.io/simple-apps/focus/
 - **habits** — https://mumbo235.github.io/simple-apps/habits/

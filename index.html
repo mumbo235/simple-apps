@@ -24,6 +24,7 @@ h1{font-size:2.6em}
 .app{display:flex;align-items:flex-start;gap:13px;padding:17px;background:var(--surface);border-radius:17px;transition:background .2s ease,transform .2s var(--ease)}
 .app:hover{background:var(--surface2);transform:translateY(-2px)}
 .app:active{transform:translateY(0)}
+.app.feature{grid-column:1/-1}
 .app img{flex:none;width:42px;height:42px;border-radius:11px;background:var(--bg)}
 .app-text{min-width:0}
 .app-name{font-size:1em;color:var(--fg);text-transform:none}
@@ -42,11 +43,15 @@ h1{font-size:2.6em}
     <div id="brand">
       <h1>simple apps</h1>
       <div class="motto">small tools, kept simple.</div>
-      <div class="sub">six quiet, local-first apps.</div>
+      <div class="sub">seven quiet, local-first apps.</div>
     </div>
   </header>
 
   <div class="grid">
+    <a class="app feature" href="./to-do/">
+      <img src="./to-do/icon-192.png" alt="" width="42" height="42">
+      <div class="app-text"><div class="app-name">to:do</div><div class="app-desc">the original. tasks, reminders, calendar &amp; email, kept quiet.</div></div>
+    </a>
     <a class="app" href="./notes/">
       <img src="./notes/icon-192.png" alt="" width="42" height="42">
       <div class="app-text"><div class="app-name">notes</div><div class="app-desc">notebooks, search, pinning, and a forgiving trash.</div></div>

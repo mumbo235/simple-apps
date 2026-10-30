@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<script>
+try {
+  const m = JSON.parse(localStorage.getItem('todo.settings') || '{}').mode === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.mode = m;
+  document.querySelector('meta[name="theme-color"]').content = m === 'light' ? '#ffffff' : '#141414';
+  document.querySelector('meta[name="color-scheme"]').content = m;
+} catch {}
+</script>
+<title>to:do · about</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cpath d='M18 33.5l9 9 19-19' fill='none' stroke='%23f4f4f4' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141414;
+  --fg:#f4f4f4;
+  --mute:#767676;
+  --faint:#424242;
+  --surface:#1f1f1f;
+  color-scheme:dark;
+}
+html[data-mode="light"]{
+  --bg:#fff;
+  --fg:#141414;
+  --mute:#8e8e8e;
+  --faint:#c8c8c8;
+  --surface:#f5f5f5;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0;border:0;outline:0;scrollbar-width:thin;scrollbar-color:#1f1f1f transparent}
+html[data-mode="light"] *{scrollbar-color:#e4e4e4 transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1f1f1f;border-radius:999px}
+html[data-mode="light"] ::-webkit-scrollbar-thumb{background:#e4e4e4}
+html,body{background:var(--bg);color:var(--fg)}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:16px;line-height:1.65;text-transform:lowercase;
+  -webkit-font-smoothing:antialiased;min-height:100dvh;
+}
+main{max-width:640px;margin:0 auto;padding:42px 22px 96px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:36px}
+h1{font-size:2.1em;font-weight:300;letter-spacing:-.03em}
+a.back{color:var(--mute);text-decoration:none;font-size:.9em;padding:6px 12px;border-radius:999px;background:var(--surface)}
+a.back:hover{color:var(--fg)}
+h2{font-size:.78em;color:var(--faint);font-weight:500;letter-spacing:.12em;margin:32px 0 10px}
+p,li{color:var(--mute);margin-bottom:12px}
+strong{color:var(--fg);font-weight:400}
+ul{padding-left:18px;margin-bottom:14px}
+footer{margin-top:48px;color:var(--faint);font-size:.82em}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>about</h1>
+    <a class="back" href="./">back to to:do</a>
+  </header>
+
+  <p><strong>to:do</strong> is a quiet, monochrome task manager for the things you actually need to do. it lives in your browser, keeps your data on your device, and can pull tasks from google calendar and gmail with a little help from ai.</p>
+
+  <h2>created by</h2>
+  <p><strong>jarvis</strong>.</p>
+
+  <h2>what it does</h2>
+  <ul>
+    <li><strong>tasks:</strong> add, edit, complete, and clear tasks with optional due dates and browser reminders. a task added with a date is also created in google calendar when calendar is linked.</li>
+    <li><strong>google sync:</strong> reads upcoming calendar events and recent actionable emails, then turns them into a clean to-do list.</li>
+    <li><strong>local-first:</strong> tasks, settings, and tokens stay in your browser's localstorage. there is no account on a server and nothing to sign up for.</li>
+    <li><strong>installable:</strong> add it to your home screen or desktop and it keeps working offline.</li>
+  </ul>
+
+  <h2>made with</h2>
+  <p>a single html file, vanilla javascript, the google identity services token client, the google calendar &amp; gmail apis, and openrouter for the ai filtering.</p>
+
+  <h2>links</h2>
+  <p><a href="./" style="color:var(--fg)">open to:do</a> · <a href="help.html#install" style="color:var(--fg)">install</a> · <a href="help.html" style="color:var(--fg)">help</a> · <a href="https://github.com/mumbo235/to-do" target="_blank" rel="noopener" style="color:var(--fg)">source on github</a> · <a href="terms.html" style="color:var(--fg)">terms of service</a> · <a href="privacy.html" style="color:var(--fg)">privacy policy</a></p>
+
+  <footer>made by jarvis · last updated: october 2026</footer>
+</main>
+</body>
+</html>

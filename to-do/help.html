@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<script>
+try {
+  const m = JSON.parse(localStorage.getItem('todo.settings') || '{}').mode === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.mode = m;
+  document.querySelector('meta[name="theme-color"]').content = m === 'light' ? '#ffffff' : '#141414';
+  document.querySelector('meta[name="color-scheme"]').content = m;
+} catch {}
+</script>
+<title>to:do · help</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cpath d='M18 33.5l9 9 19-19' fill='none' stroke='%23f4f4f4' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141414;
+  --fg:#f4f4f4;
+  --mute:#767676;
+  --faint:#424242;
+  --surface:#1f1f1f;
+  color-scheme:dark;
+}
+html[data-mode="light"]{
+  --bg:#fff;
+  --fg:#141414;
+  --mute:#8e8e8e;
+  --faint:#c8c8c8;
+  --surface:#f5f5f5;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0;border:0;outline:0;scrollbar-width:thin;scrollbar-color:#1f1f1f transparent}
+html[data-mode="light"] *{scrollbar-color:#e4e4e4 transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1f1f1f;border-radius:999px}
+html[data-mode="light"] ::-webkit-scrollbar-thumb{background:#e4e4e4}
+html,body{background:var(--bg);color:var(--fg)}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:16px;line-height:1.65;text-transform:lowercase;
+  -webkit-font-smoothing:antialiased;min-height:100dvh;
+}
+main{max-width:640px;margin:0 auto;padding:42px 22px 96px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:36px}
+h1{font-size:2.1em;font-weight:300;letter-spacing:-.03em}
+a.back{color:var(--mute);text-decoration:none;font-size:.9em;padding:6px 12px;border-radius:999px;background:var(--surface)}
+a.back:hover{color:var(--fg)}
+h2{font-size:.78em;color:var(--faint);font-weight:500;letter-spacing:.12em;margin:32px 0 10px;scroll-margin-top:24px}
+p,li{color:var(--mute);margin-bottom:12px}
+strong{color:var(--fg);font-weight:400}
+ul{padding-left:18px;margin-bottom:14px}
+footer{margin-top:48px;color:var(--faint);font-size:.82em}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>help</h1>
+    <a class="back" href="./">back to to:do</a>
+  </header>
+
+  <p><strong>to:do</strong> is installable and links directly to google calendar and gmail. this page covers install, linking, reminders, and the services used.</p>
+
+  <h2 id="install">1. install</h2>
+  <p>to:do is a pwa (installable web app). installing gives it an app icon and keeps it working offline. open <a href="./" style="color:var(--fg)">to:do</a> in your browser first.</p>
+  <ul>
+    <li><strong>iphone / ipad (safari):</strong> tap the share button, then <strong>add to home screen</strong>. open to:do from the new icon. notifications require ios 16.4 or newer and the installed app.</li>
+    <li><strong>android (chrome):</strong> open the ⋮ menu and choose <strong>install app</strong> or <strong>add to home screen</strong>.</li>
+    <li><strong>desktop (chrome / edge):</strong> use the install icon in the address bar, or ⋮ → <strong>install to:do</strong>. in edge it may be under <strong>apps → install this site as an app</strong>.</li>
+    <li><strong>macos (safari):</strong> file → <strong>add to dock</strong> (sonoma or newer).</li>
+  </ul>
+  <p>if you don't see an install option, use the browser menu → <strong>add to home screen</strong>. after installing, sign in and allow notifications once.</p>
+  <p>on first launch, a welcome card offers to link google and add to:do to your home screen. close it whenever you like.</p>
+
+  <h2 id="link">2. link google</h2>
+  <p>open the top-right menu, find <strong>sync</strong>, and tap <strong>sign in with google</strong>. choose the account you want to use and allow:</p>
+  <ul>
+    <li><strong>calendar</strong> — read/write calendar events. to:do reads upcoming events and adds an event when you save a dated task.</li>
+    <li><strong>email</strong> — read-only gmail access. to:do only reads recent inbox metadata and short snippets to find actionable mail.</li>
+  </ul>
+  <p>after signing in, the <strong>link calendar</strong> and <strong>link email</strong> toggles unlock. turn on the sources you want; both are on by default. <strong>stay signed in</strong> keeps the session alive between opens, and <strong>auto sync</strong> refreshes your list on load and every minute.</p>
+  <p><strong>automatic reconnect:</strong> open the menu → <strong>advanced</strong>, paste the <strong>oauth client secret</strong> from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color:var(--fg)">google cloud credentials</a> (or import the client json), then tap <strong>enable automatic reconnect</strong> and approve offline access once. to:do stores a refresh token on this device and renews without a popup. the secret stays on this device and is never exported.</p>
+  <p>if you would rather keep the client secret off this device, deploy the free <a href="https://github.com/mumbo235/to-do/tree/main/server" target="_blank" rel="noopener" style="color:var(--fg)"><strong>token proxy</strong></a> to cloudflare workers, paste its url under advanced → <strong>token proxy url</strong>, and leave the client secret empty. the proxy holds the secret and exchanges codes/refreshes; the app still renews automatically.</p>
+  <p>if google still asks you to reconnect after about a week, set the oauth consent screen to <strong>in production</strong>; apps left in testing mode expire refresh tokens after 7 days. without a client secret, to:do keeps retrying the best-effort silent session and, after a few failures, asks you to reconnect from the menu.</p>
+  <p>to revoke access, open the menu → sync → <strong>disconnect</strong>, or use your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:var(--fg)">google account permissions</a>.</p>
+
+  <h2 id="services">3. services</h2>
+  <ul>
+    <li><strong>google calendar</strong> — events and dated tasks. <a href="https://calendar.google.com" target="_blank" rel="noopener" style="color:var(--fg)">open google calendar</a></li>
+    <li><strong>gmail</strong> — actionable email. <a href="https://mail.google.com" target="_blank" rel="noopener" style="color:var(--fg)">open gmail</a></li>
+    <li><strong>openrouter</strong> — the ai that filters items into tasks; built in, no key needed. <a href="https://openrouter.ai" target="_blank" rel="noopener" style="color:var(--fg)">openrouter.ai</a></li>
+  </ul>
+  <p>to:do doesn't link outlook, apple calendar, notion, or todoist directly yet. it reads your <strong>primary</strong> google calendar only, so events from other calendars need to be in that primary calendar to appear.</p>
+
+  <h2 id="appearance">4. appearance</h2>
+  <p>open the menu → <strong>appearance</strong> for mode, font, text size, density, animation speed, and reduce motion.</p>
+  <p>menu → <strong>colors</strong> sets the accent, background, and text colors. colors are saved separately for dark and light mode; <strong>match text</strong> keeps the accent monochrome, and <strong>reset</strong> restores the current mode. a custom background and text color automatically tint the cards and switches so the palette stays coherent.</p>
+  <p>menu → <strong>behavior</strong> can collapse the completed section by default, switch task times to a 24-hour clock, and turn <strong>vibration</strong> on or off. vibration is on by default on mobile, with different patterns for completing, undoing, adding, saving, deleting, switching lists, and errors. it uses the browser vibration api; android/chrome supports it, while iphone safari and most desktops do not. the vibration option is hidden on iphone. menu → <strong>sync</strong> shows the last sync, and menu → <strong>info</strong> shows the current build.</p>
+
+  <h2 id="lists">5. lists</h2>
+  <p>the bar at the top switches lists. tap <strong>+</strong> to add one. the <strong>…</strong> button on a custom list lets you rename or delete it; deleting a list removes its tasks.</p>
+  <p>tasks you add go to the list you're viewing. email and calendar sync always creates tasks in <strong>my tasks</strong>, so automatic items stay together.</p>
+  <p>tasks whose due date has passed move into an <strong>overdue</strong> group above the list, marked with a red dot. complete them or move the due date forward to clear it.</p>
+  <p>tap the <strong>magnifier</strong> beside the menu to search every list. results show their list name; the <strong>×</strong> clears the query, and the magnifier or escape closes search.</p>
+
+  <h2 id="reminders">6. reminders</h2>
+  <p>open the menu → notifications → <strong>allow notifications</strong>. choose one or more <strong>remind before</strong> times; 5m and 30m are selected by default. turn sound on or off. each task has a bell in the add/edit sheet; the bell is on by default. reminders fire while to:do is open, including the installed app.</p>
+
+  <h2 id="data">7. data</h2>
+  <p>tasks, settings, and tokens are stored in your browser's localstorage. use menu → data → export for a backup. clear finished items with completed → clear, or erase everything with reset everything. see the <a href="privacy.html" style="color:var(--fg)">privacy policy</a> for details.</p>
+
+  <h2 id="shortcuts">8. shortcuts</h2>
+  <ul>
+    <li><strong>n</strong> or <strong>+</strong> — add a task</li>
+    <li><strong>esc</strong> — close the add sheet or menu</li>
+    <li>tap the motto to cycle it</li>
+  </ul>
+
+  <h2 id="links">9. links</h2>
+  <p><a href="./" style="color:var(--fg)">open to:do</a> · <a href="about.html" style="color:var(--fg)">about</a> · <a href="terms.html" style="color:var(--fg)">terms</a> · <a href="privacy.html" style="color:var(--fg)">privacy</a> · <a href="https://github.com/mumbo235/to-do" target="_blank" rel="noopener" style="color:var(--fg)">source</a> · <a href="https://github.com/mumbo235/to-do/issues" target="_blank" rel="noopener" style="color:var(--fg)">report an issue</a></p>
+
+  <footer>last updated: october 2026</footer>
+</main>
+</body>
+</html>

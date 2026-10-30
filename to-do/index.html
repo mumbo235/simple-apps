@@ -1,0 +1,2710 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script>
+// the dev harness is local-only: never enable it on a public host
+var __HOST = location.hostname;
+var __PRIVATE = __HOST === 'localhost' || __HOST === '0.0.0.0' || __HOST === '::1' || __HOST === '[::1]' ||
+  /^127\./.test(__HOST) || /^10\./.test(__HOST) || /^192\.168\./.test(__HOST) ||
+  /^172\.(1[6-9]|2\d|3[01])\./.test(__HOST) || /\.local$/i.test(__HOST) || /\.localhost$/i.test(__HOST);
+var __DEV = __PRIVATE && new URLSearchParams(location.search).has('dev');
+var __NS = __DEV ? 'todo.dev.' : 'todo.';
+try {
+  const st = JSON.parse(localStorage.getItem(__NS + 'settings') || '{}');
+  const m = st.mode === 'light' ? 'light' : 'dark';
+  const saved = st.colors && st.colors[m] && st.colors[m].bg;
+  const bg = typeof saved === 'string' && /^#[0-9a-f]{6}$/i.test(saved) ? saved : (m === 'light' ? '#ffffff' : '#141414');
+  document.documentElement.dataset.mode = m;
+  document.querySelector('meta[name="theme-color"]').content = bg;
+  document.querySelector('meta[name="color-scheme"]').content = m;
+  document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = m === 'light' ? 'default' : 'black';
+} catch {}
+</script>
+<script>
+(function () {
+  if (!__DEV || parent === window) return;
+  const post = (kind, level, text, extra) => {
+    try {
+      parent.postMessage(Object.assign({ __todoDev: true, kind, level, text: String(text).slice(0, 4000), ts: Date.now() }, extra || {}), location.origin);
+    } catch {}
+  };
+  const fmt = v => {
+    try {
+      if (typeof v === 'string') return v;
+      if (v instanceof Error) return v.stack || v.message;
+      if (typeof v === 'function') return '[function ' + (v.name || 'anonymous') + ']';
+      const s = JSON.stringify(v, (k, x) => typeof x === 'function' ? '[function]' : x);
+      return s === undefined ? String(v) : s;
+    } catch { return String(v); }
+  };
+  ['log', 'info', 'warn', 'error', 'debug'].forEach(level => {
+    const original = console[level].bind(console);
+    console[level] = (...args) => {
+      original(...args);
+      // this hook only exists in the dev sandbox
+      post('log', level, args.map(fmt).join(' '));
+    };
+  });
+  addEventListener('error', e => post('log', 'error', (e.message || 'script error') + ' @ ' + (e.filename || '?') + ':' + (e.lineno || 0)));
+  addEventListener('unhandledrejection', e => post('log', 'error', 'unhandled rejection: ' + fmt(e.reason)));
+  const realFetch = window.fetch;
+  if (realFetch) {
+    window.fetch = function (input, init) {
+      const started = performance.now();
+      const req = input && typeof input === 'object' ? input : null;
+      const method = String((init && init.method) || (req && req.method) || 'GET').toUpperCase();
+      let target = 'request';
+      try { const u = new URL(typeof input === 'string' ? input : input.url, location.href); target = u.origin + u.pathname; } catch {}
+      const done = (level, text) => post('net', level, method + ' ' + target + ' · ' + text + ' · ' + Math.round(performance.now() - started) + 'ms');
+      let promise;
+      try { promise = realFetch.apply(this, arguments); } catch (e) { done('error', 'failed'); throw e; }
+      Promise.resolve(promise).then(res => done(res.ok ? 'info' : 'warn', String(res.status)), () => done('error', 'failed'));
+      return promise;
+    };
+  }
+  post('hello', 'info', 'dev sandbox ready');
+})();
+</script>
+<script>
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__installPrompt = e; });
+</script>
+<meta name="apple-mobile-web-app-title" content="to:do">
+<title>to:do</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cpath d='M18 33.5l9 9 19-19' fill='none' stroke='%23f4f4f4' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fontLink" rel="stylesheet" href="">
+<style>
+:root{
+  --bg:#141414;
+  --fg:#f4f4f4;
+  --mute:color-mix(in srgb,var(--fg) 46%,var(--bg));
+  --faint:color-mix(in srgb,var(--fg) 24%,var(--bg));
+  --surface:color-mix(in srgb,var(--fg) 4%,var(--bg));
+  --surface2:color-mix(in srgb,var(--fg) 8.5%,var(--bg));
+  --surface3:color-mix(in srgb,var(--fg) 12.7%,var(--bg));
+  --menu:color-mix(in srgb,var(--fg) 2%,var(--bg));
+  --danger:color-mix(in srgb,var(--fg) 17.2%,var(--bg));
+  --red:#ff453a;
+  --accent:var(--fg);
+  --accent-ink:var(--bg);
+  --shadow:0 10px 40px rgba(0,0,0,.9);
+  --shadow-lg:0 30px 80px rgba(0,0,0,.95);
+  --font:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --fs:17px;
+  --pad:14px;
+  --spd:1;
+  --ease:cubic-bezier(.22,.8,.24,1);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+  color-scheme:dark;
+}
+html[data-mode="light"]{
+  --bg:#fff;
+  --fg:#141414;
+  --surface:color-mix(in srgb,var(--fg) 3.3%,var(--bg));
+  --surface2:color-mix(in srgb,var(--fg) 6.7%,var(--bg));
+  --surface3:color-mix(in srgb,var(--fg) 11.5%,var(--bg));
+  --menu:color-mix(in srgb,var(--fg) 1.2%,var(--bg));
+  --danger:color-mix(in srgb,var(--fg) 8%,var(--bg));
+  --red:#d92d20;
+  --shadow:0 10px 40px rgba(0,0,0,.10);
+  --shadow-lg:0 30px 80px rgba(0,0,0,.14);
+  color-scheme:light;
+}
+html{scrollbar-gutter:stable;touch-action:manipulation}
+*{box-sizing:border-box;margin:0;padding:0;border:0;outline:0;-webkit-tap-highlight-color:transparent;scrollbar-width:thin;scrollbar-color:var(--surface3) transparent}
+button,a,input,select,textarea,label{touch-action:manipulation}
+body,input,textarea,.text,.meta,.empty,.welcome p,.hint,.status .st{-webkit-user-select:text;user-select:text}
+@media (max-width:820px),(pointer:coarse){
+  #listName,#taskDue,#clientId,#searchInput,.field input[type="text"],.field input[type="password"],.field input[type="url"]{font-size:16px}
+}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:999px}
+html,body{background:var(--bg);color:var(--fg);touch-action:manipulation}
+body{
+  font-family:var(--font);font-size:var(--fs);font-weight:400;line-height:1.4;
+  text-transform:lowercase;letter-spacing:-.005em;
+  -webkit-font-smoothing:antialiased;min-height:100dvh;overflow-x:hidden;
+}
+button,input,select,textarea{font:inherit;color:inherit;background:none;text-transform:inherit;letter-spacing:inherit}
+button{cursor:pointer;user-select:none}
+.raw,.raw::placeholder{text-transform:none}
+::selection{background:var(--fg);color:var(--bg)}
+:is(button,a,input:not(#taskText)):focus-visible{background-color:var(--surface3)!important;border-radius:10px}
+:is(.seg button[aria-pressed="true"],.chip.solid):focus-visible{background-color:var(--fg)!important;border-radius:999px;opacity:.75}
+[hidden]{display:none!important}
+
+/* ---------- layout ---------- */
+main{max-width:660px;margin:0 auto;padding:calc(28px + var(--safe-t)) 22px calc(140px + var(--safe-b))}
+header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:16px;transition:column-gap calc(var(--spd)*220ms) var(--ease)}
+#brand{grid-column:1;grid-row:1;min-width:0;max-height:80px;overflow:hidden;transition:max-height calc(var(--spd)*240ms) var(--ease),opacity calc(var(--spd)*180ms) ease,transform calc(var(--spd)*220ms) var(--ease)}
+body.searching #brand{max-height:44px;opacity:0;transform:translateX(-8px);pointer-events:none}
+body.searching header{column-gap:8px}
+h1{font-size:2.35em;font-weight:300;letter-spacing:-.035em;line-height:1.05;word-break:break-word}
+#title .devbadge{display:inline-block;vertical-align:middle;margin-left:8px;padding:2px 6px;border-radius:6px;background:var(--surface3);color:var(--mute);font-size:.28em;letter-spacing:.08em;font-weight:500;line-height:1.2}
+.motto{color:var(--mute);font-size:.86em;margin-top:6px;letter-spacing:.005em;cursor:pointer;transition:opacity calc(var(--spd)*200ms) ease,color calc(var(--spd)*200ms) ease}
+.motto:hover{color:var(--fg)}
+.motto.fade{opacity:0}
+.iconbtn{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;color:var(--fg);transition:background calc(var(--spd)*200ms)}
+.iconbtn:hover{background:var(--surface2)}
+.iconbtn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round}
+.hactions{grid-column:2;grid-row:1;display:flex;align-items:flex-start;flex:none}
+#searchBtn{position:relative;margin-top:2px}
+#searchBtn .searchGlyph,#searchBtn .closeGlyph{grid-area:1/1;transition:opacity calc(var(--spd)*220ms) ease,transform calc(var(--spd)*220ms) var(--ease)}
+#searchBtn .closeGlyph{opacity:0;transform:rotate(-45deg) scale(.7)}
+body.searching #searchBtn .searchGlyph{opacity:0;transform:rotate(45deg) scale(.7)}
+body.searching #searchBtn .closeGlyph{opacity:1;transform:none}
+#menuBtn{margin-top:2px;margin-right:-10px}
+#menuBtn .dot{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--accent);transform:translate(11px,-11px);opacity:0;transition:opacity calc(var(--spd)*300ms)}
+#menuBtn.attn .dot{opacity:1}
+#menuBtn{position:relative}
+
+/* ---------- search ---------- */
+.searchwrap{grid-column:1;grid-row:1;min-width:0;height:44px;display:flex;align-items:center;opacity:0;transform:scaleX(.55);transform-origin:right center;pointer-events:none;transition:opacity calc(var(--spd)*200ms) ease,transform calc(var(--spd)*260ms) var(--ease)}
+body.searching #searchWrap{opacity:1;transform:none;pointer-events:auto}
+.searchwrap>div{min-width:0;width:100%}
+.searchbar{display:flex;align-items:center;gap:8px;width:100%;height:40px;padding:0 14px;background:var(--surface2);border-radius:999px}
+.searchbar>svg{width:16px;height:16px;flex:none;stroke:var(--mute);fill:none;stroke-width:1.7;stroke-linecap:round}
+#searchInput{flex:1;min-width:0;height:100%;background:transparent;color:var(--fg);font-size:max(16px,1em);text-transform:none;appearance:none;-webkit-appearance:none}
+#searchInput::placeholder{color:var(--faint)}
+#searchInput::-webkit-search-cancel-button{display:none}
+#searchClear{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:var(--mute);font-size:1.1em;transition:background calc(var(--spd)*200ms),color calc(var(--spd)*200ms)}
+#searchClear:hover{color:var(--fg);background:var(--surface3)}
+#listbar{max-height:40px;transition:max-height calc(var(--spd)*220ms) var(--ease),opacity calc(var(--spd)*160ms) ease,margin-top calc(var(--spd)*220ms) ease}
+body.searching #listbar{max-height:0;opacity:0;margin-top:0;overflow:hidden;pointer-events:none}
+body.searching #welcomeWrap{display:none}
+.meta .listname{color:var(--mute)}
+
+/* ---------- lists ---------- */
+ul{list-style:none}
+#taskArea{margin-top:18px;transition:opacity calc(var(--spd)*160ms) ease,transform calc(var(--spd)*160ms) var(--ease)}
+#taskArea.swapping{opacity:0;transform:translateY(4px);pointer-events:none}
+.item{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows calc(var(--spd)*240ms) cubic-bezier(.25,.46,.45,.94),opacity calc(var(--spd)*140ms) ease}
+.item>.inner{min-height:0;overflow:hidden;display:flex;align-items:flex-start;gap:14px;padding:var(--pad) 0;transition:opacity calc(var(--spd)*100ms) ease,transform calc(var(--spd)*100ms) var(--ease),padding-top calc(var(--spd)*240ms) cubic-bezier(.25,.46,.45,.94),padding-bottom calc(var(--spd)*240ms) cubic-bezier(.25,.46,.45,.94)}
+.item.enter{grid-template-rows:0fr;opacity:0}
+.item.leaving{grid-template-rows:0fr;opacity:0}
+.item.enter>.inner,.item.leaving>.inner{padding-top:0;padding-bottom:0}
+.item.leaving>.inner{opacity:0;transform:translateY(-4px)}
+.check{flex:none;width:24px;height:24px;margin-top:calc((1.4em - 24px)/2);border-radius:50%;background:var(--surface3);display:grid;place-items:center;transition:background calc(var(--spd)*240ms) ease,transform calc(var(--spd)*200ms) ease}
+.check:active{transform:scale(.88)}
+.check svg{width:14px;height:14px;fill:none;stroke:var(--accent-ink);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.check path{stroke-dasharray:24;stroke-dashoffset:24;transition:stroke-dashoffset calc(var(--spd)*240ms) cubic-bezier(.25,.46,.45,.94)}
+@media (hover:hover){.check:hover{background:color-mix(in srgb,var(--fg) 30%,var(--bg))}}
+.body{flex:1;min-width:0}
+.text{
+  word-break:break-word;
+  background:linear-gradient(currentColor,currentColor) no-repeat 0 50%/0% 1.5px;
+  transition:background-size calc(var(--spd)*240ms) cubic-bezier(.25,.46,.45,.94),color calc(var(--spd)*240ms) ease;
+}
+.meta{font-size:.7em;color:var(--faint);margin-top:4px;letter-spacing:.03em;display:flex;gap:8px;flex-wrap:wrap;transition:opacity calc(var(--spd)*120ms) ease}
+.meta .late{color:var(--mute);display:inline-flex;align-items:center;gap:6px}
+.meta .late::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.meta .bell{display:inline-flex;align-items:center}
+.meta .bell svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.striking .check,.done .check{background:var(--accent)}
+.striking .check path,.done .check path{stroke-dashoffset:0}
+.striking .text,.done .text{background-size:100% 1.5px;color:var(--mute)}
+.done .meta{opacity:.6}
+.edit{flex:none;width:34px;height:34px;margin:calc((1.4em - 34px)/2) -6px 0 0;border-radius:50%;display:grid;place-items:center;color:var(--faint);transition:color calc(var(--spd)*200ms),background calc(var(--spd)*200ms)}
+.edit svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.edit:hover{color:var(--fg);background:var(--surface2)}
+.empty{color:var(--faint);padding:var(--pad) 0;font-size:.95em}
+
+.secclip{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows calc(var(--spd)*300ms) var(--ease),opacity calc(var(--spd)*220ms) ease}
+.secclip>div{min-height:0;overflow:hidden}
+#overdueWrap{margin-bottom:12px;transition:margin-bottom calc(var(--spd)*300ms) var(--ease)}
+#overdueWrap.off{margin-bottom:0}
+#overdueWrap.off>.secclip{grid-template-rows:0fr;opacity:0}
+#overdueHead{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:.8em;padding:2px 0 4px;letter-spacing:.02em}
+#overdueHead .dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--red)}
+
+#welcomeWrap{display:grid;grid-template-rows:1fr;opacity:1;margin-top:18px;transition:grid-template-rows calc(var(--spd)*240ms) cubic-bezier(.25,.46,.45,.94),opacity calc(var(--spd)*160ms) ease,margin-top calc(var(--spd)*240ms) ease}
+#welcomeWrap[hidden]{display:none}
+#welcomeWrap.off{grid-template-rows:0fr;opacity:0;margin-top:0}
+#welcomeWrap>div{min-height:0;overflow:hidden}
+.welcome{position:relative;background:var(--surface);border-radius:16px;padding:14px 16px}
+.welcome p{font-size:.82em;color:var(--mute);line-height:1.5;padding-right:36px}
+.welcome p strong{color:var(--fg);font-weight:400}
+.welcome-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.welcome-x{position:absolute;top:6px;right:6px;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;color:var(--faint)}
+.welcome-x:hover{color:var(--fg);background:var(--surface2)}
+.welcome-x svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+
+#doneWrap{margin-top:34px;transition:margin-top calc(var(--spd)*300ms) var(--ease)}
+#doneWrap.off{margin-top:0}
+#doneWrap.off>.secclip{grid-template-rows:0fr;opacity:0}
+#doneHead{display:flex;align-items:center;gap:10px;color:var(--mute);font-size:.8em;padding:8px 0;letter-spacing:.02em}
+#doneHead svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;transition:transform calc(var(--spd)*260ms) var(--ease)}
+#doneWrap.collapsed #doneHead svg{transform:rotate(-90deg)}
+#doneHead .grow{flex:1}
+#clearDone{color:var(--faint);font-size:1em;padding:4px 0}
+#clearDone:hover{color:var(--fg)}
+#doneBox{display:grid;grid-template-rows:1fr;transition:grid-template-rows calc(var(--spd)*320ms) var(--ease)}
+#doneWrap.collapsed #doneBox{grid-template-rows:0fr}
+#doneBox>div{min-height:0;overflow:hidden}
+#doneList .item>.inner{padding:calc(var(--pad)*.7) 0}
+#doneList .item.enter>.inner,#doneList .item.leaving>.inner{padding-top:0;padding-bottom:0}
+#doneList{font-size:.94em}
+
+/* ---------- lists ---------- */
+.listbar{display:flex;align-items:center;gap:6px;margin-top:16px;position:relative}
+.listtabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0}
+.listtabs::-webkit-scrollbar{display:none}
+.listtab{flex:none;height:32px;padding:0 12px;border-radius:999px;background:var(--surface2);color:var(--mute);font-size:.78em;white-space:nowrap;transition:background calc(var(--spd)*200ms) ease,color calc(var(--spd)*200ms) ease}
+.listtab:hover{color:var(--fg)}
+.listtab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.listbtn{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--mute);background:var(--surface2);transition:background calc(var(--spd)*200ms) ease,color calc(var(--spd)*200ms) ease}
+.listbtn:hover{color:var(--fg);background:var(--surface3)}
+.listbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+#listMore[hidden]{display:none}
+#listMore{background:transparent}
+#listMore:hover{background:var(--surface2)}
+.listmenu{position:absolute;top:calc(100% + 8px);right:0;z-index:20;background:var(--surface);border-radius:12px;padding:6px;box-shadow:var(--shadow);display:flex;flex-direction:column;min-width:150px}
+.listmenu[hidden]{display:none}
+.listmenu button{text-align:left;padding:9px 12px;border-radius:8px;color:var(--mute);font-size:.85em}
+.listmenu button:hover{color:var(--fg);background:var(--surface2)}
+.listmenu button.danger:hover{background:var(--danger)}
+.listformwrap{max-height:36px;overflow:hidden;opacity:1;margin-top:10px;transition:max-height calc(var(--spd)*200ms) cubic-bezier(.4,0,.2,1),opacity calc(var(--spd)*160ms) ease,margin-top calc(var(--spd)*200ms) ease}
+.listformwrap[hidden]{display:none}
+.listformwrap.off{max-height:0;opacity:0;margin-top:0}
+.listformwrap>div{min-height:0;overflow:hidden}
+.listform{display:flex;gap:8px;align-items:center}
+.listform input{flex:1;min-width:0;height:36px;background:var(--surface2);border-radius:999px;padding:0 14px;font-size:.86em}
+.listform input::placeholder{color:var(--faint)}
+
+/* ---------- fab ---------- */
+#fab{
+  position:fixed;z-index:60;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(22px + var(--safe-b));
+  width:60px;height:60px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;
+  box-shadow:var(--shadow);transition:transform calc(var(--spd)*320ms) var(--ease),background calc(var(--spd)*300ms)
+}
+#fab svg{width:24px;height:24px;stroke:var(--accent-ink);stroke-width:2;stroke-linecap:round;fill:none;transition:transform calc(var(--spd)*320ms) var(--ease)}
+#fab:active{transform:scale(.92)}
+#fab.open svg{transform:rotate(45deg)}
+#fab:focus-visible{background:var(--accent)!important;box-shadow:0 0 0 6px var(--surface3)}
+
+/* ---------- popover sheet ---------- */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:opacity calc(var(--spd)*260ms) ease;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.scrim.show{opacity:1;pointer-events:auto}
+#sheet{
+  position:fixed;z-index:50;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(96px + var(--safe-b));
+  width:min(440px,calc(100vw - 32px));background:var(--surface);border-radius:22px;padding:18px;
+  transform-origin:calc(100% - 30px) calc(100% + 40px);transform:scale(.6) translateY(20px);opacity:0;pointer-events:none;
+  transition:transform calc(var(--spd)*340ms) var(--ease),opacity calc(var(--spd)*220ms) ease;
+  box-shadow:var(--shadow-lg)
+}
+#sheet.show{transform:none;opacity:1;pointer-events:auto}
+#taskText{width:100%;font-size:1.15em;padding:6px 2px 14px;font-weight:400}
+#taskText::placeholder{color:var(--faint)}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grow{flex:1}
+.chip{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;background:var(--surface2);color:var(--mute);font-size:.82em;transition:background calc(var(--spd)*200ms),color calc(var(--spd)*200ms)}
+.chip:hover{color:var(--fg)}
+.chip.solid{background:var(--accent);color:var(--accent-ink)}
+.chip.solid:disabled{opacity:.35}
+#notifyChip{padding:0 11px;color:var(--mute)}
+#notifyChip svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#notifyChip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chip.danger:hover{background:var(--danger)}
+.chip input[type=datetime-local]{color:var(--fg);font-size:1em;min-width:0;width:100%;color-scheme:inherit;text-transform:none}
+label.chip{flex:0 1 auto;min-width:0;overflow:hidden}
+#form .row{flex-wrap:wrap}
+#form .row .duewrap{display:flex;align-items:center;gap:8px;flex:1 1 0;min-width:0;position:relative}
+#form .row label.chip{flex:1 1 0;width:100%;min-width:0;max-width:none;position:relative}
+#dueCompact{display:none}
+#form .row label.chip:focus-within{background:var(--surface3)}
+#form .row .actions{display:flex;gap:8px;margin-left:0;flex:0 0 auto}
+.row .chip:not(label){flex:none}
+.chip input[type=datetime-local]:not(.has){color:var(--faint)}
+.more-toggle{margin-top:14px;color:var(--faint);font-size:.78em;display:flex;align-items:center;gap:6px;padding:4px 0}
+.more-toggle svg{width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2;transition:transform calc(var(--spd)*240ms) var(--ease)}
+.more-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.more-toggle:hover{color:var(--fg)}
+.more{display:grid;grid-template-rows:0fr;transition:grid-template-rows calc(var(--spd)*300ms) var(--ease)}
+.more.show{grid-template-rows:1fr}
+.more>div{min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.more button{text-align:left;padding:12px 2px;color:var(--mute);font-size:.92em;display:flex;align-items:center;gap:12px;border-radius:10px}
+.more button:first-child{margin-top:8px}
+.more button:hover{color:var(--fg)}
+.more button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- mobile task sheet ---------- */
+@media (max-width:520px){
+  #sheet{right:16px;left:16px;width:auto}
+  #form .row{flex-wrap:nowrap;gap:4px;position:relative}
+  #form .row.editing{flex-wrap:wrap;justify-content:center;gap:6px}
+  #form .row.editing .duewrap{flex:1 1 100%}
+  #form .row.editing label.chip{flex:1 1 100%}
+  #form .row .duewrap{flex:1 1 0;min-width:0;gap:0;overflow:hidden}
+  #form .row label.chip{flex:1 1 0;width:100%;max-width:none;min-width:0;padding:0 10px;gap:0}
+  #form .row label.chip .duelabel{display:none}
+  #dueCompact{display:block;font-size:15px;line-height:36px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:30px;color:var(--mute);pointer-events:none}
+  #dueCompact.has{color:var(--fg)}
+  #taskDue{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;min-width:0;padding:0;z-index:1}
+  #form .row .actions{flex:0 0 auto;margin-left:0;display:flex}
+  #form .row .actions .chip{flex:0 0 auto;min-width:100px;padding:0 14px;justify-content:center}
+  #notifyChip{flex:0 0 auto;padding:0 9px}
+  #clearDue{position:absolute;top:0;right:0;width:30px;height:36px;padding:0;justify-content:center;background:transparent;z-index:2}
+}
+
+/* ---------- menu drawer ---------- */
+#menu{
+  position:fixed;z-index:65;top:0;right:0;bottom:0;width:min(390px,100vw);background:var(--menu);
+  transform:translateX(102%);transition:transform calc(var(--spd)*380ms) var(--ease);
+  overflow-y:auto;overscroll-behavior:contain;padding:calc(24px + var(--safe-t)) 24px calc(48px + var(--safe-b))
+}
+#menu.show{transform:none}
+#menu .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+#menu h2{font-size:1.2em;font-weight:300;letter-spacing:-.02em}
+#menu h3{font-size:.7em;color:var(--faint);font-weight:500;letter-spacing:.1em;margin:22px 0 8px}
+.card{background:var(--surface);border-radius:16px;padding:12px 16px;display:flex;flex-direction:column;gap:2px}
+.field{padding:8px 0}
+.field>label,.field>.lbl{display:block;font-size:.76em;color:var(--mute);margin-bottom:6px}
+.field input[type=text],.field input[type=password]{width:100%;background:var(--surface2);border-radius:10px;padding:10px 12px;font-size:.88em}
+.field input::placeholder{color:var(--faint)}
+.hint{font-size:.7em;color:var(--faint);margin-top:6px;line-height:1.45}
+.hint a{color:var(--mute)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{height:32px;padding:0 12px;border-radius:999px;background:var(--surface2);color:var(--mute);font-size:.78em;transition:background calc(var(--spd)*200ms),color calc(var(--spd)*200ms)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:hover:not([aria-pressed="true"]){color:var(--fg)}
+.tog{display:flex;align-items:center;justify-content:space-between;padding:9px 0;font-size:.88em;color:var(--mute);width:100%;text-align:left}
+.tog:hover{color:var(--fg)}
+.tog[aria-disabled="true"]{color:var(--faint);cursor:default}
+.tog[aria-disabled="true"]:hover{color:var(--faint)}
+.tog[aria-disabled="true"] .sw{opacity:.5}
+.sw{flex:none;width:38px;height:22px;border-radius:999px;background:var(--surface3);position:relative;transition:background calc(var(--spd)*240ms)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--mute);transition:transform calc(var(--spd)*240ms) var(--ease),background calc(var(--spd)*240ms)}
+.tog[aria-checked="true"] .sw{background:var(--accent)}
+.tog[aria-checked="true"] .sw::after{transform:translateX(16px);background:var(--accent-ink)}
+.status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 10px;font-size:.88em}
+.status .st{color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.linkbtn{display:block;width:100%;text-align:left;padding:9px 0;color:var(--mute);font-size:.88em;text-decoration:none}
+.linkbtn:hover{color:var(--fg)}
+.linkgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.linkgrid .linkbtn{padding:8px 0}
+.swatches{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:2px 0}
+.swatch{width:24px;height:24px;border-radius:50%;background:var(--sw);transition:transform calc(var(--spd)*200ms) var(--ease),box-shadow calc(var(--spd)*200ms) ease}
+.swatch:active{transform:scale(.9)}
+.swatch[aria-pressed="true"],.swatch.custom-on{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--fg)}
+.swatch.custom{position:relative;overflow:hidden;background:conic-gradient(from 0deg,#f7768e,#e0af68,#9ece6a,#7dcfff,#7aa2f7,#bb9af7,#f7768e)}
+.swatch.custom input{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);opacity:0;cursor:pointer}
+.swatch.custom:focus-within{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--fg)}
+.color-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0}
+.color-row .lbl{margin:0;font-size:.8em;color:var(--mute)}
+.color-input{width:42px;height:26px;border-radius:8px;background:var(--surface2);padding:0;cursor:pointer;appearance:none;-webkit-appearance:none;box-shadow:inset 0 0 0 1px var(--surface3)}
+.color-input::-webkit-color-swatch-wrapper{padding:0}
+.color-input::-webkit-color-swatch{border:0;border-radius:6px}
+.color-input::-moz-color-swatch{border:0;border-radius:6px}
+.chip:disabled{opacity:.35;pointer-events:none}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;z-index:70;left:50%;bottom:calc(34px + var(--safe-b));transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  background:var(--surface2);color:var(--fg);border-radius:999px;padding:11px 18px;font-size:.8em;max-width:calc(100vw - 140px);
+  transition:transform calc(var(--spd)*300ms) var(--ease),opacity calc(var(--spd)*220ms) ease;text-align:center
+}
+#toast.show{transform:translate(-50%,0);opacity:1}
+@media (max-width:520px){#toast{left:22px;transform:translate(0,20px);max-width:calc(100vw - 120px)}#toast.show{transform:none}}
+
+html.rm *,html.rm *::before,html.rm *::after{animation-duration:1ms!important;animation-delay:0ms!important;transition-duration:1ms!important;transition-delay:0ms!important}
+html.no-tx *,html.no-tx *::before,html.no-tx *::after{transition:none!important}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div id="brand">
+      <h1 id="title">to:do</h1>
+      <div class="motto" id="motto" role="button" tabindex="0" aria-label="encouragement, tap for another">you got this</div>
+    </div>
+    <div id="searchWrap" class="searchwrap" hidden><div>
+      <div class="searchbar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.2"/><path d="M15.6 15.6 20 20"/></svg>
+        <input id="searchInput" type="search" placeholder="search all tasks" maxlength="120" autocomplete="off" enterkeyhint="search" aria-label="search tasks">
+        <button type="button" id="searchClear" aria-label="clear search" hidden>×</button>
+      </div>
+    </div></div>
+    <div class="hactions">
+      <button class="iconbtn" id="searchBtn" aria-label="search tasks" aria-expanded="false" aria-controls="searchWrap">
+        <svg class="searchGlyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.2"/><path d="M15.6 15.6 20 20"/></svg>
+        <svg class="closeGlyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <button class="iconbtn" id="menuBtn" aria-label="menu" aria-expanded="false" aria-controls="menu">
+        <svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16"/></svg><span class="dot"></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="listbar" id="listbar">
+    <div id="listTabs" class="listtabs" role="tablist" aria-label="lists"></div>
+    <button type="button" class="listbtn" id="listMore" aria-label="list options" aria-haspopup="menu" aria-expanded="false" hidden><svg viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></button>
+    <button type="button" class="listbtn" id="addListBtn" aria-label="new list" aria-expanded="false" aria-controls="listFormWrap"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <div class="listmenu" id="listMenu" role="menu" hidden>
+      <button type="button" id="renameList" role="menuitem">rename</button>
+      <button type="button" id="deleteList" class="danger" role="menuitem">delete</button>
+    </div>
+  </div>
+  <div id="listFormWrap" class="listformwrap" hidden><div>
+    <form id="listForm" class="listform" autocomplete="off">
+      <input id="listName" type="text" maxlength="40" placeholder="list name" enterkeyhint="done" aria-label="list name">
+      <button type="submit" class="chip solid" id="listSubmit">add</button>
+      <button type="button" class="chip" id="listCancel">cancel</button>
+    </form>
+  </div></div>
+
+  <div id="welcomeWrap" hidden><div>
+    <section class="welcome" aria-label="welcome">
+      <button type="button" class="welcome-x" id="welcomeClose" aria-label="dismiss welcome"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <p>link <strong>google calendar</strong> &amp; <strong>gmail</strong> to turn events and email into tasks.<span id="welcomeHome"> on mobile, add to:do to your home screen.</span></p>
+      <div class="welcome-actions" id="welcomeActions">
+        <button type="button" class="chip solid" id="welcomeLink">link google</button>
+        <button type="button" class="chip" id="welcomeInstall">install app</button>
+      </div>
+    </section>
+  </div></div>
+
+  <div id="taskArea" role="tabpanel">
+    <section id="overdueWrap" hidden>
+      <div class="secclip"><div>
+        <div id="overdueHead"><span class="dot" aria-hidden="true"></span><span>overdue <span id="overdueCount"></span></span></div>
+        <ul id="overdueList" aria-label="overdue tasks"></ul>
+      </div></div>
+    </section>
+    <ul id="list" aria-label="tasks"></ul>
+    <div class="empty" id="empty" hidden>nothing to do.</div>
+
+    <section id="doneWrap" hidden>
+      <div class="secclip"><div>
+        <div id="doneHead">
+          <button id="doneToggle" aria-expanded="true" style="display:flex;align-items:center;gap:10px">
+            <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg><span>completed <span id="doneCount"></span></span>
+          </button>
+          <span class="grow"></span>
+          <button id="clearDone">clear</button>
+        </div>
+        <div id="doneBox"><div><ul id="doneList" aria-label="completed"></ul></div></div>
+      </div></div>
+    </section>
+  </div>
+</main>
+
+<div class="scrim" id="scrim"></div>
+
+<section id="sheet" role="dialog" aria-modal="true" aria-label="add task" aria-hidden="true" inert>
+  <form id="form" autocomplete="off">
+    <input id="taskText" type="text" placeholder="what needs doing?" maxlength="240" enterkeyhint="done">
+    <div class="row">
+      <div class="duewrap">
+        <label class="chip" title="due"><span class="duelabel">due</span><span id="dueCompact"></span><input type="datetime-local" id="taskDue" aria-label="due date"></label>
+        <button type="button" class="chip" id="clearDue" aria-label="clear due date" hidden>×</button>
+      </div>
+      <button type="button" class="chip" id="notifyChip" aria-pressed="true" title="remind me" aria-label="remind me"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 21h4"/></svg></button>
+      <span class="actions">
+        <button type="button" class="chip danger" id="delBtn" hidden>delete</button>
+        <button type="submit" class="chip solid" id="saveBtn">add</button>
+      </span>
+    </div>
+  </form>
+</section>
+
+<button id="fab" aria-label="add task" aria-expanded="false" aria-controls="sheet">
+  <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<aside id="menu" aria-label="settings" aria-hidden="true" inert>
+  <div class="top">
+    <h2>menu</h2>
+    <button type="button" class="iconbtn" id="menuClose" aria-label="close menu" style="margin-right:-10px"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+
+  <h3>appearance</h3>
+  <div class="card">
+    <div class="field"><div class="lbl">mode</div>
+      <div class="seg" data-seg="mode"><button data-v="light">light</button><button data-v="dark">dark</button></div></div>
+    <div class="field"><div class="lbl">font</div>
+      <div class="seg" data-seg="font"><button data-v="inter">inter</button><button data-v="manrope">manrope</button><button data-v="grotesk">grotesk</button><button data-v="mono">mono</button><button data-v="system">system</button></div></div>
+    <div class="field"><div class="lbl">text size</div>
+      <div class="seg" data-seg="size"><button data-v="s">small</button><button data-v="m">medium</button><button data-v="l">large</button></div></div>
+    <div class="field"><div class="lbl">density</div>
+      <div class="seg" data-seg="density"><button data-v="compact">compact</button><button data-v="comfy">comfy</button><button data-v="airy">airy</button></div></div>
+    <div class="field"><div class="lbl">animation</div>
+      <div class="seg" data-seg="speed" data-num><button data-v="1.6">slow</button><button data-v="1">normal</button><button data-v="0.6">fast</button></div></div>
+    <button type="button" class="tog" role="switch" data-toggle="reduceMotion"><span>reduce motion</span><span class="sw"></span></button>
+  </div>
+
+  <h3>colors</h3>
+  <div class="card">
+    <div class="field"><div class="lbl">accent</div>
+      <div class="swatches" id="accentPresets">
+        <button type="button" class="swatch" data-accent="" style="--sw:var(--fg)" aria-label="match text"></button>
+        <button type="button" class="swatch" data-accent="#7aa2f7" style="--sw:#7aa2f7" aria-label="blue"></button>
+        <button type="button" class="swatch" data-accent="#7dcfff" style="--sw:#7dcfff" aria-label="teal"></button>
+        <button type="button" class="swatch" data-accent="#9ece6a" style="--sw:#9ece6a" aria-label="green"></button>
+        <button type="button" class="swatch" data-accent="#e0af68" style="--sw:#e0af68" aria-label="amber"></button>
+        <button type="button" class="swatch" data-accent="#ff9e64" style="--sw:#ff9e64" aria-label="orange"></button>
+        <button type="button" class="swatch" data-accent="#f7768e" style="--sw:#f7768e" aria-label="rose"></button>
+        <button type="button" class="swatch" data-accent="#bb9af7" style="--sw:#bb9af7" aria-label="violet"></button>
+        <label class="swatch custom" title="custom accent" aria-label="custom accent"><input type="color" id="accentColor" aria-label="custom accent color"></label>
+      </div>
+    </div>
+    <div class="color-row"><span class="lbl">background</span><input type="color" class="color-input" id="bgColor" aria-label="background color"></div>
+    <div class="color-row"><span class="lbl">text</span><input type="color" class="color-input" id="fgColor" aria-label="text color"></div>
+    <div class="status"><span class="st" id="colorHint"></span><button type="button" class="chip" id="resetColors">reset</button></div>
+    <div class="hint">colors are saved separately for dark and light mode.</div>
+  </div>
+
+  <h3>behavior</h3>
+  <div class="card">
+    <button type="button" class="tog" role="switch" data-toggle="doneCollapsed"><span>collapse completed</span><span class="sw"></span></button>
+    <button type="button" class="tog" role="switch" data-toggle="clock24"><span>24-hour time</span><span class="sw"></span></button>
+    <button type="button" class="tog" role="switch" id="vibrateToggle" data-toggle="vibrate"><span>vibration</span><span class="sw"></span></button>
+    <div class="hint" id="vibrateHint" hidden>this browser doesn't support vibration.</div>
+  </div>
+
+  <h3>notifications</h3>
+  <div class="card">
+    <div class="status"><span class="st" id="notifyStatus">not enabled</span><button type="button" class="chip solid" id="notifyBtn">allow notifications</button></div>
+    <button type="button" class="tog" role="switch" data-toggle="notify"><span>reminders</span><span class="sw"></span></button>
+    <button type="button" class="tog" role="switch" data-toggle="notifySound"><span>sound</span><span class="sw"></span></button>
+    <div class="field"><div class="lbl">remind before</div>
+      <div class="seg" data-seg="notifyLeads" data-multi="1"><button data-v="0">at time</button><button data-v="5">5m</button><button data-v="15">15m</button><button data-v="30">30m</button><button data-v="45">45m</button><button data-v="60">1h</button><button data-v="1440">1d</button></div></div>
+    <div class="hint" id="notifyHint">each selected reminder fires once while to:do is open.</div>
+  </div>
+
+  <h3>sync</h3>
+  <div class="card">
+    <div class="status"><span class="st" id="gStatus">not connected</span><button type="button" class="chip solid" id="gBtn">sign in with google</button></div>
+    <button type="button" class="tog" role="switch" data-toggle="useCal"><span>link calendar</span><span class="sw"></span></button>
+    <button type="button" class="tog" role="switch" data-toggle="useMail"><span>link email</span><span class="sw"></span></button>
+    <button type="button" class="tog" role="switch" data-toggle="autoLogin"><span>stay signed in</span><span class="sw"></span></button>
+    <button type="button" class="tog" role="switch" data-toggle="autoSync"><span>auto sync</span><span class="sw"></span></button>
+    <div class="status"><span class="st" id="syncStatus"></span></div>
+    <div class="hint" id="renewHint" hidden><a href="#" id="renewHintLink">stay connected automatically</a></div>
+    <div class="hint"><a href="help.html#link">how to link calendar &amp; email</a></div>
+  </div>
+
+  <h3>data</h3>
+  <div class="card">
+    <button type="button" class="linkbtn" id="exportBtn">export tasks</button>
+    <button type="button" class="linkbtn" id="importBtn">import tasks</button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <button type="button" class="linkbtn" id="resetBtn">reset everything</button>
+  </div>
+
+  <h3>info</h3>
+  <div class="card">
+    <button type="button" class="linkbtn" id="installBtn">install app</button>
+    <div class="linkgrid">
+      <a class="linkbtn" href="about.html">about</a>
+      <a class="linkbtn" href="help.html">help</a>
+      <a class="linkbtn" href="terms.html">terms</a>
+      <a class="linkbtn" href="privacy.html">privacy</a>
+    </div>
+    <div class="hint" id="buildInfo"></div>
+  </div>
+
+  <button type="button" class="more-toggle" id="devToggle" aria-expanded="false" aria-controls="devKeys" style="margin-top:16px">
+    advanced <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+  </button>
+  <div class="more" id="devKeys"><div>
+    <div class="card" style="margin-top:8px">
+      <div class="field">
+        <label for="clientId">google oauth client id</label>
+        <input id="clientId" class="raw" type="text" data-setting="clientId" placeholder="xxxx.apps.googleusercontent.com" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="tokenProxy">token proxy url</label>
+        <input id="tokenProxy" class="raw" type="url" data-setting="tokenProxy" placeholder="https://todo-token.xxx.workers.dev" spellcheck="false" autocomplete="off">
+        <div class="hint">optional — keeps the client secret on a free server instead of this device. deploy the <a href="https://github.com/mumbo235/to-do/tree/main/server" target="_blank" rel="noopener">token proxy</a> and paste its url. then leave the secret below empty.</div>
+      </div>
+      <div class="field">
+        <label for="clientSecret">google oauth client secret</label>
+        <input id="clientSecret" class="raw" type="password" data-setting="clientSecret" placeholder="optional — enables automatic renewal" spellcheck="false" autocomplete="off">
+        <div class="hint">copy it from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">google cloud credentials</a>, or download the client json there and import it below. it stays on this device and is never exported.</div>
+      </div>
+      <button type="button" class="linkbtn" id="importClientBtn">import google client json</button>
+      <input type="file" id="importClientFile" accept="application/json,.json" hidden>
+      <button type="button" class="chip solid" id="renewBtn" style="width:100%;justify-content:center;margin-top:4px" hidden>enable automatic reconnect</button>
+      <div class="hint" id="renewState" hidden>automatic reconnect is on. if it stops after a week, publish the oauth consent screen.</div>
+    </div>
+  </div></div>
+</aside>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* =================== storage =================== */
+const NS = __NS;
+const BUILD = 'v1.55';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(NS + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(NS + k, JSON.stringify(v)); } catch (e) { toast('storage is full'); } },
+  del(k) { localStorage.removeItem(NS + k); }
+};
+
+/* =================== models =================== */
+const PRIMARY_MODEL = 'gemini-2.5-pro';
+const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+const DEFAULT_OPENROUTER_KEY = atob('c2stb3ItdjEtMjQzN2I4ZjZhMGRiNTg2YTI1MDE0ODk5NjNmZjAwZjAyM2EzZGExYzk0ODZhN2ZlY2E1ZWZiNGUwOGRlZjBkNQ==');
+const DEFAULT_CLIENT_ID = '980491967211-3b3o9h4crs5n2lvqniha1d5kh5a7sct2.apps.googleusercontent.com';
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// deployed token proxy for this to:do instance; see server/README.md
+const DEFAULT_TOKEN_PROXY = 'https://todo-token.jarvisfishwick.workers.dev';
+const OR_FREE_MODELS = [
+  'openrouter/free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'qwen/qwen3-235b-a22b:free'
+];
+const MOTTOS = [
+  'you got this',
+  'keep going',
+  'stay focused',
+  'do what you can',
+  'pace yourself',
+  'take a breath',
+  'drink some water',
+  'take some time off',
+  'stay determined',
+  'keep going'
+];
+
+// Gemini <= 3.6 is defunct (production 2.5 excepted): upgrade legacy references.
+function sanitizeModel(m) {
+  m = String(m || '').trim().toLowerCase().replace(/^models\//, '');
+  if (!m || !m.startsWith('gemini')) return PRIMARY_MODEL;
+  const v = m.match(/^gemini-(\d+)(?:\.(\d+))?(?=-|$)/);
+  if (!v) return m.includes('flash') ? 'gemini-3.8-flash' : PRIMARY_MODEL; // e.g. "gemini-pro" (1.0)
+  const major = +v[1], minor = +(v[2] || 0);
+  if (major === 2 && minor === 5) return m;
+  if (major < 3 || (major === 3 && minor <= 6)) return m.includes('flash') ? 'gemini-3.8-flash' : PRIMARY_MODEL;
+  return m;
+}
+function modelChain(selected) {
+  const s = sanitizeModel(selected);
+  return [s, ...FALLBACK_MODELS.filter(x => x !== s)];
+}
+
+/* =================== state =================== */
+const COLOR_DEFAULTS = {
+  dark:  { bg: '#141414', fg: '#f4f4f4', accent: '' },
+  light: { bg: '#ffffff', fg: '#141414', accent: '' }
+};
+const VIBE = {
+  tap: 18,
+  list: 15,
+  complete: 30,
+  undo: [14, 45, 14],
+  add: [20, 38, 30],
+  save: [14, 30, 14],
+  delete: [35, 55, 35],
+  error: [45, 65, 45],
+  reminder: [120, 70, 120]
+};
+function buzz(kind = 'tap') {
+  if (!settings.vibrate || typeof navigator.vibrate !== 'function') return;
+  try { navigator.vibrate(VIBE[kind] || VIBE.tap); } catch {}
+}
+function hexColor(v) {
+  v = String(v || '').trim();
+  if (/^#[0-9a-f]{3}$/i.test(v)) v = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+  return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
+}
+function inkFor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = x => { x /= 255; return x <= .04045 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); };
+  const lum = .2126 * ch(n >> 16 & 255) + .7152 * ch(n >> 8 & 255) + .0722 * ch(n & 255);
+  return 1.05 / (lum + .05) > (lum + .05) / .05 ? '#ffffff' : '#000000';
+}
+const DEFAULTS = {
+  mode: 'dark', font: 'grotesk', size: 'm', density: 'compact', speed: 1.6,
+  reduceMotion: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches),
+  openRouterKey: DEFAULT_OPENROUTER_KEY, geminiKey: '', model: PRIMARY_MODEL, clientId: DEFAULT_CLIENT_ID, clientSecret: '', tokenProxy: DEFAULT_TOKEN_PROXY,
+  useCal: true, useMail: true, autoSync: true, autoLogin: true, doneCollapsed: false, clock24: false,
+  notify: true, notifySound: true, notifyLeads: [5, 30], vibrate: true,
+  colors: { dark: { ...COLOR_DEFAULTS.dark }, light: { ...COLOR_DEFAULTS.light } }
+};
+let settings = Object.assign({}, DEFAULTS, store.get('settings', {}));
+{
+  // migrate the old single lead/frequency settings to a multi-select list
+  const stored = store.get('settings', {});
+  if (!Array.isArray(stored.notifyLeads) && stored.notifyLead !== undefined) settings.notifyLeads = [Math.max(0, +stored.notifyLead || 0)];
+  settings.notifyLeads = [...new Set((Array.isArray(settings.notifyLeads) ? settings.notifyLeads : [5, 30]).map(Number).filter(n => Number.isFinite(n) && n >= 0))].sort((a, b) => a - b);
+  if (settings.notifyLeads.length === 1 && settings.notifyLeads[0] === 15) settings.notifyLeads = [5, 30];
+  settings.mode = settings.mode === 'light' ? 'light' : 'dark';
+  settings.doneCollapsed = !!settings.doneCollapsed;
+  settings.clock24 = !!settings.clock24;
+  const storedColors = settings.colors && typeof settings.colors === 'object' ? settings.colors : {};
+  settings.colors = {};
+  for (const m of ['dark', 'light']) {
+    const c = storedColors[m] && typeof storedColors[m] === 'object' ? storedColors[m] : {};
+    settings.colors[m] = {
+      bg: hexColor(c.bg) || COLOR_DEFAULTS[m].bg,
+      fg: hexColor(c.fg) || COLOR_DEFAULTS[m].fg,
+      accent: hexColor(c.accent) || ''
+    };
+  }
+  delete settings.notifyLead;
+  delete settings.notifyRepeat;
+  store.set('settings', settings);
+}
+if (!settings.openRouterKey) { settings.openRouterKey = DEFAULT_OPENROUTER_KEY; store.set('settings', settings); }
+if (!settings.clientId) { settings.clientId = DEFAULT_CLIENT_ID; store.set('settings', settings); }
+// the deployed proxy is the default; an empty saved value must not
+// silently fall back to the old one-hour Google flow
+if (!settings.tokenProxy) { settings.tokenProxy = DEFAULT_TOKEN_PROXY; store.set('settings', settings); }
+{
+  const fixed = sanitizeModel(settings.model);
+  if (fixed !== settings.model) { settings.model = fixed; store.set('settings', settings); }
+}
+let tasks = store.get('tasks', []);
+if (!Array.isArray(tasks)) tasks = [];
+const DEFAULT_LIST_ID = 'default';
+let lists = (() => {
+  const raw = store.get('lists', []);
+  const out = [{ id: DEFAULT_LIST_ID, name: 'my tasks', createdAt: 0 }];
+  const seen = new Set([DEFAULT_LIST_ID]);
+  (Array.isArray(raw) ? raw : []).forEach(l => {
+    if (!l || typeof l !== 'object') return;
+    const id = typeof l.id === 'string' ? l.id : '';
+    const name = String(l.name || '').trim().slice(0, 40);
+    if (!id || !name || seen.has(id)) return;
+    seen.add(id);
+    out.push({ id, name, createdAt: +l.createdAt || Date.now() });
+  });
+  return out;
+})();
+store.set('lists', lists);
+const taskListId = t => t.listId && lists.some(l => l.id === t.listId) ? t.listId : DEFAULT_LIST_ID;
+let tomb = new Set(store.get('tomb', []));
+let auth = Object.assign({ token: null, exp: 0, email: '', loggedOut: false, everConnected: false, refresh: '' }, store.get('auth', {}));
+// "stay signed in" off → never resume a token saved by a previous page load
+if (!settings.autoLogin && auth.token) { auth.token = null; auth.exp = 0; store.set('auth', auth); }
+let meta = Object.assign({ lastSync: 0, seenMail: [], mailFilterV5: false, uiV2: false, fontGrotesk: false, welcomeDone: false, bg141414: false, activeList: 'default' }, store.get('meta', {}));
+let seenMail = new Set(Array.isArray(meta.seenMail) ? meta.seenMail : []);
+// move the previous default font to grotesk once; a later explicit choice is kept
+if (!meta.fontGrotesk) {
+  if (settings.font === 'inter') settings.font = 'grotesk';
+  meta.fontGrotesk = true;
+  store.set('settings', settings);
+  store.set('meta', meta);
+}
+// move the old true-black default to the softer dark background once
+if (!meta.bg141414) {
+  if (settings.colors.dark.bg === '#000000') settings.colors.dark.bg = '#141414';
+  meta.bg141414 = true;
+  store.set('settings', settings);
+  store.set('meta', meta);
+}
+let activeListId = lists.some(l => l.id === meta.activeList) ? meta.activeList : DEFAULT_LIST_ID;
+if (meta.activeList !== activeListId) { meta.activeList = activeListId; store.set('meta', meta); }
+let googleState = 'idle'; // idle | reconnect
+let searchOpen = false, searchQuery = '', searchTimer = 0;
+let listSwitching = false;   // list transition in flight
+const busy = new Set();      // ids mid-animation (hold)
+const animating = new Set(); // ids moving between lists
+const fresh = new Set();     // ids to animate in on next render
+
+const saveTasks = () => store.set('tasks', tasks);
+const saveLists = () => store.set('lists', lists);
+const saveSettings = () => store.set('settings', settings);
+const saveAuth = () => store.set('auth', auth);
+const saveTomb = () => { const a = [...tomb]; store.set('tomb', a.slice(-800)); };
+const saveMeta = () => { meta.seenMail = [...seenMail].slice(-400); store.set('meta', meta); };
+
+// one-time move to the calm defaults, fixed title, and openrouter-only ai
+if (!meta.uiV2) {
+  settings.density = 'compact';
+  settings.speed = 1.6;
+  settings.mode = 'dark';
+  settings.geminiKey = '';
+  delete settings.title;
+  delete settings.accent;
+  meta.uiV2 = true;
+  saveSettings();
+  saveMeta();
+}
+
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const STOP_WORDS = new Set(['the', 'a', 'an', 'to', 'for', 'on', 'at', 'in', 'of', 'with', 'your', 'my', 'please', 'about', 'from', 're', 'fwd', 'fw', 'reminder', 'remember', 'check', 'read', 'email']);
+const canon = s => {
+  const words = norm(s).split(/\s+/).filter(w => w && !STOP_WORDS.has(w));
+  return words.length ? words.join(' ') : norm(s);
+};
+// One-time cleanup: remove raw inbox dump from v3/v4 and deduplicate existing tasks so strict AI filter can re-sync cleanly
+if (!meta.mailFilterV5) {
+  tasks = tasks.filter(t => t.done || t.source !== 'mail');
+  const seenK = new Set(), seenT = new Set();
+  tasks = tasks.filter(t => {
+    const k = t.sourceKey || '';
+    const tk = (canon(t.text) || norm(t.text)) + (t.source === 'cal' && t.due ? '@' + String(t.due).slice(0, 10) : '');
+    if ((k && seenK.has(k)) || (tk && seenT.has(tk))) return false;
+    if (k) seenK.add(k);
+    if (tk) seenT.add(tk);
+    return true;
+  });
+  seenMail.clear();
+  meta.mailFilterV5 = true;
+  saveTasks();
+  saveMeta();
+}
+const $ = s => document.querySelector(s);
+const dur = ms => settings.reduceMotion ? 0 : ms * (+settings.speed || 1.6);
+
+class UserError extends Error {}
+
+/* =================== appearance =================== */
+const FONTS = {
+  inter:   { css: "'Inter',system-ui,sans-serif", g: 'Inter:wght@300;400;500' },
+  manrope: { css: "'Manrope',system-ui,sans-serif", g: 'Manrope:wght@300;400;500' },
+  grotesk: { css: "'Space Grotesk',system-ui,sans-serif", g: 'Space+Grotesk:wght@300;400;500' },
+  mono:    { css: "'JetBrains Mono',ui-monospace,monospace", g: 'JetBrains+Mono:wght@300;400;500' },
+  system:  { css: "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif", g: null }
+};
+const SIZES = { s: '15px', m: '17px', l: '19.5px' };
+const DENS = { compact: '9px', comfy: '14px', airy: '20px' };
+
+function applySettings() {
+  const r = document.documentElement;
+  const mode = settings.mode === 'light' ? 'light' : 'dark';
+  const modeChanged = r.dataset.mode !== mode;
+  if (modeChanged) r.classList.add('no-tx');
+  r.dataset.mode = mode;
+  const colors = (settings.colors && settings.colors[mode]) || COLOR_DEFAULTS[mode];
+  const bg = hexColor(colors.bg) || COLOR_DEFAULTS[mode].bg;
+  const fg = hexColor(colors.fg) || COLOR_DEFAULTS[mode].fg;
+  const accent = hexColor(colors.accent) || fg;
+  r.style.setProperty('--bg', bg);
+  r.style.setProperty('--fg', fg);
+  r.style.setProperty('--accent', accent);
+  r.style.setProperty('--accent-ink', inkFor(accent));
+  const theme = document.querySelector('meta[name="theme-color"]');
+  if (theme) theme.content = bg;
+  const scheme = document.querySelector('meta[name="color-scheme"]');
+  if (scheme) scheme.content = mode;
+  const status = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (status) status.content = mode === 'light' ? 'default' : 'black';
+  const f = FONTS[settings.font] || FONTS.inter;
+  r.style.setProperty('--font', f.css);
+  const href = f.g ? `https://fonts.googleapis.com/css2?family=${f.g}&display=swap` : '';
+  const link = $('#fontLink');
+  if (link.getAttribute('href') !== href) link.setAttribute('href', href);
+  r.style.setProperty('--fs', SIZES[settings.size] || SIZES.m);
+  r.style.setProperty('--pad', DENS[settings.density] || DENS.compact);
+  r.style.setProperty('--spd', settings.reduceMotion ? 0.001 : (+settings.speed || 1.6));
+  r.classList.toggle('rm', !!settings.reduceMotion);
+  $('#title').textContent = 'to:do';
+  document.title = 'to:do';
+  if (modeChanged) {
+    requestAnimationFrame(() => requestAnimationFrame(() => r.classList.remove('no-tx')));
+    setTimeout(() => r.classList.remove('no-tx'), 120);
+  }
+}
+
+/* =================== dates =================== */
+function parseDue(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) { const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? null : { iso: d.toISOString(), allDay: true }; }
+  const d = new Date(s);
+  return isNaN(d) ? null : { iso: d.toISOString(), allDay: false };
+}
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+function fmtTime(d) {
+  let h = d.getHours(), m = d.getMinutes();
+  if (settings.clock24) return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  const ap = h < 12 ? 'am' : 'pm'; h = h % 12 || 12;
+  return m ? `${h}:${String(m).padStart(2, '0')}${ap}` : `${h}${ap}`;
+}
+function fmtDue(t, now = new Date()) {
+  if (!t.due) return null;
+  const d = new Date(t.due);
+  if (isNaN(d)) return null;
+  const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day0(d) - day0(now)) / 864e5);
+  let label;
+  if (diff === 0) label = 'today';
+  else if (diff === 1) label = 'tomorrow';
+  else if (diff === -1) label = 'yesterday';
+  else if (diff > 1 && diff < 7) label = DAYS[d.getDay()];
+  else label = `${MONTHS[d.getMonth()]} ${d.getDate()}` + (d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : '');
+  if (!t.allDay) label += ' ' + fmtTime(d);
+  const late = !t.done && (t.allDay ? diff < 0 : d < now);
+  return { label, late };
+}
+function isOverdue(t) {
+  const due = fmtDue(t);
+  return !!(due && due.late);
+}
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* =================== rendering =================== */
+const ICON_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICON_EDIT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
+const ICON_BELL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 21h4"/></svg>';
+
+function sortOpen(a, b) {
+  const ad = a.due ? Date.parse(a.due) : NaN, bd = b.due ? Date.parse(b.due) : NaN;
+  const ah = !isNaN(ad), bh = !isNaN(bd);
+  if (ah && bh) return ad - bd || a.createdAt - b.createdAt;
+  if (ah !== bh) return ah ? -1 : 1;
+  return b.createdAt - a.createdAt;
+}
+
+function itemEl(t, showList = false) {
+  const li = document.createElement('li');
+  li.className = 'item' + (t.done ? ' done' : '') + (fresh.has(t.id) ? ' enter' : '') + (busy.has(t.id) ? ' striking' : '');
+  li.dataset.id = t.id;
+  const inner = document.createElement('div'); inner.className = 'inner';
+  const chk = document.createElement('button');
+  chk.className = 'check'; chk.dataset.act = 'check'; chk.innerHTML = ICON_CHECK;
+  chk.setAttribute('aria-label', t.done ? 'mark not done' : 'complete');
+  const body = document.createElement('div'); body.className = 'body';
+  const txt = document.createElement('span'); txt.className = 'text'; txt.textContent = t.text;
+  body.appendChild(txt);
+  const due = fmtDue(t);
+  const listName = showList ? ((lists.find(l => l.id === taskListId(t)) || {}).name || '') : '';
+  if (listName || t.source || due) {
+    const m = document.createElement('div'); m.className = 'meta';
+    if (listName) { const s = document.createElement('span'); s.className = 'listname'; s.textContent = listName; m.appendChild(s); }
+    if (t.source) { const s = document.createElement('span'); s.className = 'src'; s.textContent = t.source; m.appendChild(s); }
+    if (due) { const s = document.createElement('span'); s.textContent = due.label; if (due.late) s.className = 'late'; m.appendChild(s); }
+    if (due && t.notify !== false) {
+      const s = document.createElement('span'); s.className = 'bell'; s.title = 'reminders on'; s.setAttribute('aria-label', 'reminders on'); s.innerHTML = ICON_BELL; m.appendChild(s);
+    }
+    body.appendChild(m);
+  }
+  const ed = document.createElement('button');
+  ed.className = 'edit'; ed.dataset.act = 'edit'; ed.innerHTML = ICON_EDIT; ed.setAttribute('aria-label', 'edit');
+  inner.append(chk, body, ed);
+  li.appendChild(inner);
+  return li;
+}
+
+const sectionTimers = new WeakMap();
+function showSection(wrap) {
+  clearTimeout(sectionTimers.get(wrap));
+  sectionTimers.delete(wrap);
+  if (!wrap.hidden) { wrap.classList.remove('off'); return; }
+  wrap.hidden = false;
+  wrap.classList.add('off');
+  void wrap.offsetHeight;
+  wrap.classList.remove('off');
+}
+function hideSection(wrap, immediate = false) {
+  clearTimeout(sectionTimers.get(wrap));
+  sectionTimers.delete(wrap);
+  if (immediate) { wrap.hidden = true; wrap.classList.remove('off'); return; }
+  if (wrap.hidden) return;
+  wrap.classList.add('off');
+  sectionTimers.set(wrap, setTimeout(() => {
+    if (!wrap.classList.contains('off')) return;
+    wrap.hidden = true;
+    wrap.classList.remove('off');
+  }, dur(320)));
+}
+
+function syncSections(defer) {
+  const wrap = $('#doneWrap');
+  const inList = tasks.filter(t => taskListId(t) === activeListId);
+  const openCount = inList.reduce((n, t) => n + (t.done ? 0 : 1), 0);
+  const doneCount = inList.length - openCount;
+  const overdueCount = inList.filter(isOverdue).length;
+  const overdueWrap = $('#overdueWrap');
+  if (openCount > 0) $('#empty').hidden = true;
+  else if (!defer) $('#empty').hidden = false;
+  if (!defer || doneCount) $('#doneCount').textContent = doneCount ? String(doneCount) : '';
+  if (overdueCount) {
+    $('#overdueCount').textContent = String(overdueCount);
+    showSection(overdueWrap);
+  } else if (!defer) {
+    $('#overdueCount').textContent = '';
+    hideSection(overdueWrap);
+  }
+  if (doneCount) {
+    showSection(wrap);
+  } else if (!defer) {
+    hideSection(wrap);
+  }
+  wrap.classList.toggle('collapsed', !!settings.doneCollapsed);
+  $('#doneToggle').setAttribute('aria-expanded', String(!settings.doneCollapsed));
+}
+
+function renderSearch() {
+  const q = searchQuery.toLowerCase();
+  fresh.clear();
+  const matches = tasks.filter(t => !q || String(t.text || '').toLowerCase().includes(q));
+  matches.sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0) || (a.done ? (b.doneAt || 0) - (a.doneAt || 0) : sortOpen(a, b)));
+  $('#list').replaceChildren(...matches.map(t => itemEl(t, true)));
+  $('#overdueList').replaceChildren();
+  hideSection($('#overdueWrap'), true);
+  $('#doneList').replaceChildren();
+  hideSection($('#doneWrap'), true);
+  const empty = $('#empty');
+  if (matches.length) empty.hidden = true;
+  else { empty.hidden = false; empty.textContent = q ? `no matches for “${searchQuery}”` : 'no tasks yet'; }
+}
+function openSearch() {
+  if (searchOpen) return;
+  closeSheet(); closeMenu(); closeListForm(); closeListMenu();
+  searchOpen = true; searchQuery = '';
+  const btn = $('#searchBtn'), wrap = $('#searchWrap'), input = $('#searchInput');
+  btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-label', 'close search');
+  input.value = ''; $('#searchClear').hidden = true;
+  clearTimeout(searchTimer);
+  wrap.hidden = false;
+  void wrap.offsetHeight;
+  document.body.classList.add('searching');
+  render();
+  searchTimer = setTimeout(() => { if (searchOpen) input.focus(); }, dur(260) + 50);
+}
+function closeSearch() {
+  if (!searchOpen) return;
+  searchOpen = false; searchQuery = '';
+  document.body.classList.remove('searching');
+  const btn = $('#searchBtn'), wrap = $('#searchWrap'), input = $('#searchInput');
+  btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-label', 'search tasks');
+  input.value = ''; $('#searchClear').hidden = true; input.blur();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { if (!searchOpen) wrap.hidden = true; }, dur(260) + 30);
+  render();
+}
+function toggleSearch() { searchOpen ? closeSearch() : openSearch(); }
+
+function render() {
+  if (searchOpen) { renderSearch(); return; }
+  $('#empty').textContent = 'nothing to do.';
+  const inList = t => taskListId(t) === activeListId;
+  const open = tasks.filter(t => !t.done && inList(t)).sort(sortOpen);
+  const done = tasks.filter(t => t.done && inList(t)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+  const overdue = open.filter(isOverdue);
+  const rest = open.filter(t => !isOverdue(t));
+  $('#overdueList').replaceChildren(...overdue.map(itemEl));
+  $('#list').replaceChildren(...rest.map(itemEl));
+  $('#doneList').replaceChildren(...done.map(itemEl));
+  syncSections();
+  if (fresh.size) {
+    let shown = false;
+    const reveal = () => {
+      if (shown) return;
+      shown = true;
+      document.querySelectorAll('.item.enter').forEach(el => { void el.offsetHeight; el.classList.remove('enter'); });
+      fresh.clear();
+    };
+    requestAnimationFrame(reveal);
+    setTimeout(reveal, 50);
+  } else fresh.clear();
+}
+
+/* =================== task ops =================== */
+function addTask({ text, due = null, allDay = false, source = null, sourceKey = null, aiTitle = null, notify = true, listId = DEFAULT_LIST_ID }) {
+  text = String(text || '').trim().slice(0, 240);
+  if (!text) return null;
+  listId = lists.some(l => l.id === listId) ? listId : DEFAULT_LIST_ID;
+  const t = { id: uid(), text, due, allDay, done: false, doneAt: 0, createdAt: Date.now(), source, sourceKey, aiTitle, notify: notify !== false, notifiedLeads: [], listId };
+  tasks.push(t); fresh.add(t.id);
+  return t;
+}
+// Title keys: calendar items are scoped to their day so recurring events (weekly standup…)
+// are not blocked by last week's instance; mail / manual items are title-only.
+const dayKey = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+const titleKey = (title, source, due) => {
+  const n = norm(title); if (!n) return '';
+  const day = source === 'cal' && due ? dayKey(due) : '';
+  return day ? n + '@' + day : n;
+};
+function buryTask(t) {
+  if (!t.source) return;
+  if (t.sourceKey) tomb.add(t.sourceKey);
+  for (const s of [t.text, t.aiTitle]) { const k = s && titleKey(s, t.source, t.due); if (k) tomb.add('t:' + k); }
+}
+function deleteTask(id) {
+  const t = tasks.find(x => x.id === id); if (!t) return;
+  buryTask(t); saveTomb();
+  tasks = tasks.filter(x => x.id !== id); saveTasks();
+}
+function placeRow(row, t) {
+  const overdue = isOverdue(t);
+  const dest = t.done ? $('#doneList') : overdue ? $('#overdueList') : $('#list');
+  const inList = x => taskListId(x) === activeListId;
+  const order = t.done
+    ? tasks.filter(x => x.done && inList(x)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0))
+    : tasks.filter(x => !x.done && inList(x) && isOverdue(x) === overdue).sort(sortOpen);
+  const i = order.findIndex(x => x.id === t.id);
+  const next = i >= 0 ? order[i + 1] : null;
+  const nextEl = next && dest.querySelector(`.item[data-id="${CSS.escape(next.id)}"]`);
+  dest.insertBefore(row, nextEl || null);
+}
+
+function toggleDone(id, li) {
+  const t = tasks.find(x => x.id === id);
+  if (!t || busy.has(id) || animating.has(id)) return;
+  const done = !t.done;
+  busy.add(id);
+  if (done) {
+    li && li.classList.add('striking');
+    buzz('complete');
+  } else {
+    // retract the check and strike in place before the row collapses
+    li && li.classList.remove('striking', 'done');
+    buzz('undo');
+  }
+  if (searchOpen) {
+    setTimeout(() => {
+      const c = tasks.find(x => x.id === id) || t;
+      c.done = done; c.doneAt = done ? Date.now() : 0;
+      busy.delete(id); saveTasks(); render();
+    }, dur(240));
+    return;
+  }
+  // after the check / strike, close the old row and open the new one together
+  setTimeout(() => {
+    const oldRow = document.querySelector(`.item[data-id="${CSS.escape(id)}"]`) || li;
+    const c = tasks.find(x => x.id === id) || t;
+    c.done = done;
+    c.doneAt = done ? Date.now() : 0;
+    busy.delete(id);
+    animating.add(id);
+    saveTasks();
+    fresh.delete(id);
+    const row = itemEl(c);
+    row.classList.add('enter');
+    placeRow(row, c);
+    syncSections(true);
+    oldRow && oldRow.classList.add('leaving');
+    let revealed = false;
+    const revealRow = () => {
+      if (revealed) return;
+      revealed = true;
+      void row.offsetHeight;
+      row.classList.remove('enter');
+    };
+    requestAnimationFrame(revealRow);
+    setTimeout(revealRow, 50);
+    setTimeout(() => oldRow && oldRow.remove(), dur(240) + 30);
+    setTimeout(() => { animating.delete(id); syncSections(); }, dur(240) + 40);
+  }, dur(240));
+}
+
+/* =================== toast =================== */
+let toastTimer;
+function toast(msg, ms = 2800) {
+  const el = $('#toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+/* =================== sheet (add / edit) =================== */
+let editingId = null;
+let notifyOn = true;
+function setNotifyChip() {
+  const b = $('#notifyChip');
+  if (!b) return;
+  b.setAttribute('aria-pressed', String(!!notifyOn));
+  const label = notifyOn ? 'reminders on' : 'reminders off';
+  b.title = label; b.setAttribute('aria-label', label);
+}
+function shortDue(v) {
+  if (!v) return 'due';
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return 'due';
+  const now = new Date();
+  const yr = d.getFullYear() === now.getFullYear() ? '' : '/' + String(d.getFullYear()).slice(-2);
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: !settings.clock24 }).replace(/\s+/g, '').toLowerCase();
+  return `${d.getMonth() + 1}/${d.getDate()}${yr}, ${time}`;
+}
+function setDueInput(v) {
+  const i = $('#taskDue');
+  i.value = v || ''; i.classList.toggle('has', !!i.value); $('#clearDue').hidden = !i.value;
+  const c = $('#dueCompact');
+  if (c) { c.textContent = shortDue(i.value); c.classList.toggle('has', !!i.value); }
+}
+function openSheet(id = null) {
+  closeMenu(); closeListForm(); closeListMenu();
+  editingId = id;
+  const t = id ? tasks.find(x => x.id === id) : null;
+  $('#taskText').value = t ? t.text : '';
+  notifyOn = t ? t.notify !== false : true;
+  setNotifyChip();
+  setDueInput(t ? toLocalInput(t.due) : '');
+  $('#saveBtn').textContent = t ? 'save' : 'add';
+  $('#delBtn').hidden = !t;
+  $('#form .row').classList.toggle('editing', !!t);
+  $('#sheet').setAttribute('aria-label', t ? 'edit task' : 'add task');
+  $('#sheet').classList.add('show'); $('#sheet').setAttribute('aria-hidden', 'false'); $('#sheet').inert = false;
+  $('#scrim').classList.add('show');
+  $('#fab').classList.add('open'); $('#fab').setAttribute('aria-expanded', 'true'); $('#fab').setAttribute('aria-label', 'close');
+  setTimeout(() => $('#taskText').focus({ preventScroll: true }), 30);
+}
+function closeSheet() {
+  editingId = null;
+  if (document.activeElement && $('#sheet').contains(document.activeElement)) document.activeElement.blur();
+  $('#sheet').classList.remove('show'); $('#sheet').setAttribute('aria-hidden', 'true'); $('#sheet').inert = true;
+  if (!$('#menu').classList.contains('show')) $('#scrim').classList.remove('show');
+  $('#fab').classList.remove('open'); $('#fab').setAttribute('aria-expanded', 'false'); $('#fab').setAttribute('aria-label', 'add task');
+}
+const sheetOpen = () => $('#sheet').classList.contains('show');
+function readDueInput() {
+  const v = $('#taskDue').value;
+  if (!v) return { due: null, allDay: false };
+  const d = new Date(v);
+  return isNaN(d) ? { due: null, allDay: false } : { due: d.toISOString(), allDay: false };
+}
+function submitSheet() {
+  const wasEditing = !!editingId;
+  const text = $('#taskText').value.trim();
+  if (!text) { $('#taskText').focus(); buzz('error'); return; }
+  const { due, allDay } = readDueInput();
+  let added = null;
+  if (editingId) {
+    const t = tasks.find(x => x.id === editingId);
+    if (t) {
+      const dueChanged = toLocalInput(t.due) !== $('#taskDue').value;
+      const wasNotify = t.notify !== false;
+      t.text = text.slice(0, 240);
+      if (dueChanged) { t.due = due; t.allDay = allDay; }
+      t.notify = notifyOn;
+      if (dueChanged || (notifyOn && !wasNotify)) { t.notifiedLeads = []; }
+    }
+  } else {
+    added = addTask({ text, due, allDay, notify: notifyOn, listId: activeListId });
+  }
+  saveTasks(); render(); closeSheet();
+  buzz(wasEditing ? 'save' : 'add');
+  if (added && due) autoCalendarEvent(added.id, text, due);
+}
+
+/* =================== menu =================== */
+function openMenu() {
+  if (searchOpen) closeSearch();
+  closeSheet(); closeListForm(); closeListMenu();
+  if (clientSecret() || tokenProxy() || auth.everConnected) loadGis().catch(() => {});
+  syncMenuUI();
+  $('#menu').classList.add('show'); $('#menu').setAttribute('aria-hidden', 'false'); $('#menu').inert = false;
+  $('#scrim').classList.add('show'); $('#menuBtn').setAttribute('aria-expanded', 'true');
+}
+function closeMenu() {
+  if (document.activeElement && $('#menu').contains(document.activeElement)) document.activeElement.blur();
+  $('#menu').classList.remove('show'); $('#menu').setAttribute('aria-hidden', 'true'); $('#menu').inert = true;
+  if (!sheetOpen()) $('#scrim').classList.remove('show');
+  $('#menuBtn').setAttribute('aria-expanded', 'false');
+}
+function ago(ts) {
+  if (!ts) return 'never';
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  if (s < 86400) return Math.round(s / 3600) + 'h ago';
+  return Math.round(s / 86400) + 'd ago';
+}
+const clientId = () => (settings.clientId || '').trim();
+const clientSecret = () => (settings.clientSecret || '').trim();
+const tokenProxy = () => {
+  const v = (settings.tokenProxy || '').trim().replace(/\/+$/, '');
+  return /^https?:\/\/\S+$/i.test(v) ? v : '';
+};
+const autoLogin = () => !!(settings.autoLogin && auth.everConnected && !auth.loggedOut && clientId());
+const googleLinked = () => tokenValid() || googleState === 'reconnect' || autoLogin();
+const canSync = () => settings.autoSync && hasAiKey() && clientId() &&
+  auth.everConnected && !auth.loggedOut && (settings.useCal || settings.useMail) && (tokenValid() || settings.autoLogin);
+function tokenValid() { return !!auth.token && auth.exp > Date.now() + 60000; }
+function syncMenuUI() {
+  document.querySelectorAll('[data-setting]').forEach(i => { if (document.activeElement !== i) i.value = settings[i.dataset.setting] ?? ''; });
+  document.querySelectorAll('[data-seg]').forEach(g => {
+    const k = g.dataset.seg;
+    if (k === 'notifyLeads') {
+      const vals = new Set((Array.isArray(settings.notifyLeads) ? settings.notifyLeads : []).map(Number));
+      g.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(vals.has(+b.dataset.v))));
+    } else {
+      g.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(String(settings[k]) === b.dataset.v)));
+    }
+  });
+  document.querySelectorAll('[data-toggle]').forEach(b => {
+    const k = b.dataset.toggle;
+    const locked = (k === 'useCal' || k === 'useMail') && !googleLinked();
+    b.setAttribute('aria-checked', String(locked ? false : !!settings[k]));
+    if (locked) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+  });
+  const vibBtn = $('#vibrateToggle'), vibHint = $('#vibrateHint');
+  if (vibBtn) vibBtn.hidden = IS_IOS;
+  if (vibHint) vibHint.hidden = IS_IOS || typeof navigator.vibrate === 'function';
+  const colorMode = settings.mode === 'light' ? 'light' : 'dark';
+  const colors = (settings.colors && settings.colors[colorMode]) || COLOR_DEFAULTS[colorMode];
+  const cbg = hexColor(colors.bg) || COLOR_DEFAULTS[colorMode].bg;
+  const cfg = hexColor(colors.fg) || COLOR_DEFAULTS[colorMode].fg;
+  const cacc = hexColor(colors.accent) || cfg;
+  $('#accentColor').value = cacc;
+  $('#bgColor').value = cbg;
+  $('#fgColor').value = cfg;
+  $('#colorHint').textContent = 'editing ' + colorMode + ' mode';
+  let presetHit = false;
+  document.querySelectorAll('[data-accent]').forEach(b => {
+    const v = b.dataset.accent;
+    const on = v ? v.toLowerCase() === cacc : !hexColor(colors.accent);
+    b.setAttribute('aria-pressed', String(on));
+    if (on && v) presetHit = true;
+  });
+  document.querySelector('.swatch.custom').classList.toggle('custom-on', !!hexColor(colors.accent) && !presetHit);
+  const st = $('#gStatus'), btn = $('#gBtn');
+  btn.hidden = false;
+  const renHint = $('#renewHint'), renBtn = $('#renewBtn'), renState = $('#renewState');
+  if (renHint) renHint.hidden = canRefresh() || !auth.everConnected || !!tokenProxy();
+  if (renBtn) renBtn.hidden = !(clientSecret() || tokenProxy()) || canRefresh();
+  if (renState) renState.hidden = !canRefresh();
+  const needsGrant = !!(tokenProxy() && autoLogin() && !auth.refresh && !tokenValid());
+  if (tokenValid()) {
+    st.textContent = 'connected' + (canRefresh() ? ' · auto-renew' : '') + (auth.email ? ' · ' + auth.email : '');
+    st.classList.add('raw');
+    btn.textContent = 'disconnect';
+    btn.classList.remove('solid');
+  } else if (needsGrant) {
+    st.textContent = 'sign in once to stay connected'; st.classList.remove('raw');
+    btn.textContent = 'sign in with google'; btn.classList.add('solid'); btn.hidden = false;
+  } else if (autoLogin() && googleState !== 'reconnect') {
+    // an expired token is normal; it refreshes silently or on the next tap
+    st.textContent = 'reconnecting…'; st.classList.remove('raw');
+    btn.textContent = 'sync now'; btn.classList.add('solid'); btn.hidden = true;
+  } else if (googleState === 'reconnect') {
+    st.textContent = 'tap to reconnect'; st.classList.remove('raw'); btn.textContent = 'reconnect'; btn.classList.add('solid'); btn.hidden = false;
+  } else {
+    st.textContent = 'not connected'; st.classList.remove('raw'); btn.textContent = 'sign in with google'; btn.classList.add('solid');
+  }
+  $('#syncStatus').textContent = 'last sync ' + ago(meta.lastSync) + (auth.everConnected && !settings.autoLogin ? ' · stay signed in is off' : '');
+  $('#menuBtn').classList.toggle('attn', googleState === 'reconnect');
+  syncNotifyUI();
+}
+
+/* =================== google auth (GIS token client) =================== */
+const SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly';
+const IDP_ORIGIN = 'https://accounts.google.com';
+let gisPromise = null;
+let authBusy = null;    // interactive sign-in in flight
+let silentBusy = null;  // silent iframe sign-in in flight
+let refreshBusy = null; // refresh-token exchange in flight
+let silentFailures = 0;
+let reconnectTimer = 0;
+let idp = null, idpSeq = 0;
+
+class PopupBlocked extends UserError {}
+
+function loadGis() {
+  if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+  if (gisPromise) return gisPromise;
+  gisPromise = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => res();
+    s.onerror = () => { gisPromise = null; rej(new UserError("couldn't load google sign-in")); };
+    document.head.appendChild(s);
+  });
+  return gisPromise;
+}
+function saveToken(r) {
+  auth.token = r.access_token;
+  auth.exp = Date.now() + (+r.expires_in || 3600) * 1000;
+  auth.loggedOut = false; auth.everConnected = true;
+  if (r.refresh_token) auth.refresh = r.refresh_token;
+  if (!auth.email && r.login_hint) auth.email = r.login_hint;
+  silentFailures = 0;
+  clearTimeout(reconnectTimer);
+  googleState = 'idle'; saveAuth();
+}
+const canRefresh = () => !!(clientId() && auth.refresh && (tokenProxy() || clientSecret()));
+function tokenRequest(params) {
+  return fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(params)
+  }).then(async res => {
+    let j = {};
+    try { j = await res.json(); } catch {}
+    if (!res.ok) {
+      const code = j.error || '';
+      let msg = j.error_description || code || ('google ' + res.status);
+      if (code === 'invalid_client') msg = 'google rejected the oauth client secret';
+      const err = new UserError(String(msg).slice(0, 160));
+      err.code = code;
+      throw err;
+    }
+    return j;
+  }, () => { throw new UserError("couldn't reach google"); });
+}
+function proxyRequest(action, payload) {
+  const base = tokenProxy();
+  if (!base) return Promise.reject(new UserError('add your token proxy url in advanced'));
+  return fetch(base + '/' + action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, client_id: clientId() })
+  }).then(async res => {
+    let j = {};
+    try { j = await res.json(); } catch {}
+    if (!res.ok) {
+      let msg = j.error_description || j.error || ('token proxy ' + res.status);
+      if (j.error === 'client_id_mismatch') msg = 'the app and token proxy use different google client ids';
+      const err = new UserError(String(msg).slice(0, 160));
+      err.code = j.error || '';
+      throw err;
+    }
+    return j;
+  }, () => { throw new UserError("couldn't reach the token proxy"); });
+}
+function refreshAccessToken() {
+  if (!canRefresh()) return Promise.resolve(false);
+  if (refreshBusy) return refreshBusy;
+  const rt = auth.refresh;
+  refreshBusy = (async () => {
+    try {
+      const j = tokenProxy()
+        ? await proxyRequest('refresh', { refresh_token: rt })
+        : await tokenRequest({
+            client_id: clientId(), client_secret: clientSecret(),
+            grant_type: 'refresh_token', refresh_token: rt
+          });
+      if (!j.access_token || auth.loggedOut || auth.refresh !== rt) return false;
+      saveToken(j);
+      syncMenuUI();
+      return true;
+    } catch (e) {
+      if (e.code === 'invalid_grant' || e.code === 'invalid_client') {
+        // the grant was revoked or the secret is wrong; a fresh consent is needed
+        auth.refresh = '';
+        auth.token = null; auth.exp = 0; saveAuth();
+        googleState = 'reconnect'; syncMenuUI();
+        if (e.code === 'invalid_client') toast('google rejected the oauth client secret — check advanced', 8000);
+      }
+      return false;
+    } finally { refreshBusy = null; }
+  })();
+  return refreshBusy;
+}
+function requestCode() {
+  if (!clientId()) return Promise.reject(new UserError('add a google client id in the menu'));
+  const start = () => new Promise((resolve, reject) => {
+    const client = google.accounts.oauth2.initCodeClient({
+      client_id: clientId(), scope: SCOPES, ux_mode: 'popup',
+      // undocumented but forwarded to google: this is what yields a refresh token
+      access_type: 'offline', prompt: 'consent',
+      ...(auth.email ? { login_hint: auth.email } : {}),
+      callback: r => {
+        if (!r || r.error) { reject(new UserError('google: ' + ((r && (r.error_description || r.error)) || 'sign-in failed'))); return; }
+        resolve(r.code);
+      },
+      error_callback: e => {
+        const t = e && e.type;
+        if (t === 'popup_failed_to_open') reject(new PopupBlocked('google sign-in popup was blocked'));
+        else if (t === 'popup_closed') reject(new UserError('sign-in closed'));
+        else reject(new UserError('google: ' + (t || 'sign-in failed')));
+      }
+    });
+    client.requestCode();
+  });
+  if (window.google && google.accounts && google.accounts.oauth2) return start();
+  return loadGis().then(start);
+}
+function importClientJson(text) {
+  let d;
+  try { d = JSON.parse(text); } catch { throw new UserError('that file is not json'); }
+  const c = d.web || d.installed || d;
+  const id = String((c && c.client_id) || '').trim();
+  const secret = String((c && c.client_secret) || '').trim();
+  if (!id.endsWith('.apps.googleusercontent.com') || !secret) throw new UserError('that is not a web oauth client json');
+  const changed = !!settings.clientId && settings.clientId !== id;
+  settings.clientId = id; settings.clientSecret = secret;
+  if (changed) { auth.token = null; auth.exp = 0; auth.refresh = ''; saveAuth(); }
+  saveSettings(); syncMenuUI();
+  return true;
+}
+async function exchangeCode(code) {
+  if (!tokenProxy() && !clientSecret()) throw new UserError('add a token proxy or a google oauth client secret in advanced');
+  const base = tokenProxy() ? { code } : { client_id: clientId(), client_secret: clientSecret(), code, grant_type: 'authorization_code' };
+  let last = null;
+  // popup codes normally use "postmessage"; keep a fallback for google's
+  // internal transform in case the library changes how it hands the code back
+  for (const redirect_uri of ['postmessage', 'gis_transform']) {
+    try {
+      const j = tokenProxy()
+        ? await proxyRequest('exchange', { ...base, redirect_uri })
+        : await tokenRequest({ ...base, redirect_uri });
+      if (!j.refresh_token) throw new UserError('google did not return a refresh token — remove to:do from your google permissions and reconnect');
+      saveToken(j);
+      return auth.token;
+    } catch (e) {
+      last = e;
+      if (e.code !== 'redirect_uri_mismatch' && e.code !== 'invalid_request') throw e;
+    }
+  }
+  throw last;
+}
+function requestToken(prompt) {
+  if (!clientId()) return Promise.reject(new UserError('add a google client id in the menu'));
+  const start = () => new Promise((resolve, reject) => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: clientId(), scope: SCOPES, prompt,
+      ...(auth.email ? { login_hint: auth.email } : {}),
+      callback: r => {
+        if (!r || r.error) { reject(new UserError('google: ' + ((r && (r.error_description || r.error)) || 'sign-in failed'))); return; }
+        saveToken(r); resolve(auth.token);
+      },
+      error_callback: e => {
+        const t = e && e.type;
+        if (t === 'popup_failed_to_open') reject(new PopupBlocked('google sign-in popup was blocked'));
+        else if (t === 'popup_closed') reject(new UserError('sign-in closed'));
+        else reject(new UserError('google: ' + (t || 'sign-in failed')));
+      }
+    });
+    client.requestAccessToken();
+  });
+  // call synchronously when GIS is already loaded so a tap keeps its activation
+  if (window.google && google.accounts && google.accounts.oauth2) return start();
+  return loadGis().then(start);
+}
+// Google's token client can only renew in a popup, and browsers block popups
+// unless a tap opened them. At boot there is no tap, so we ask the hidden
+// google session frame first (the same one GIS uses for silent refreshes).
+// Best effort: if the browser or google says no, we quietly retry on the first tap.
+function idpStart() {
+  if (idp) return idp.ready;
+  const s = { rpc: 'r' + Math.random().toString(36).slice(2), waiters: new Map() };
+  const f = document.createElement('iframe');
+  f.id = 'gsi_silent'; f.tabIndex = -1; f.setAttribute('aria-hidden', 'true');
+  f.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';
+  f.src = `${IDP_ORIGIN}/o/oauth2/iframe#origin=${encodeURIComponent(location.origin)}&rpcToken=${encodeURIComponent(s.rpc)}&supportBlocked3PCookies=1`;
+  s.frame = f;
+  s.ready = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { stop(); reject(new UserError('silent sign-in timed out')); }, 10000);
+    const stop = () => { clearTimeout(timer); window.removeEventListener('message', onMsg); };
+    const onMsg = e => {
+      if (e.origin !== IDP_ORIGIN) return;
+      let d = e.data; if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return; } }
+      if (!d || typeof d !== 'object') return;
+      if (d.rpcToken && d.rpcToken !== s.rpc) return;
+      if (d.method === 'fireIdpEvent') {
+        if (d.params && d.params.type === 'idpReady' && d.rpcToken === s.rpc) { stop(); resolve(); }
+        return;
+      }
+      const w = d.id && s.waiters.get(d.id);
+      if (w) { s.waiters.delete(d.id); w(d.result || d); }
+    };
+    window.addEventListener('message', onMsg);
+  });
+  s.ready.catch(() => { try { f.remove(); } catch {} if (idp === s) idp = null; });
+  (document.body || document.documentElement).appendChild(f);
+  idp = s;
+  return s.ready;
+}
+function withTimeout(p, ms) { return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]); }
+function idpCall(method, params, ms = 10000) {
+  return new Promise((resolve, reject) => {
+    const s = idp;
+    if (!s) return reject(new UserError('silent sign-in unavailable'));
+    const id = 'r' + (++idpSeq);
+    const timer = setTimeout(() => { s.waiters.delete(id); reject(new UserError('silent sign-in timed out')); }, ms);
+    s.waiters.set(id, r => { clearTimeout(timer); resolve(r); });
+    try { s.frame.contentWindow.postMessage(JSON.stringify({ rpcToken: s.rpc, id, method, params }), IDP_ORIGIN); }
+    catch { clearTimeout(timer); s.waiters.delete(id); reject(new UserError('silent sign-in unavailable')); }
+  });
+}
+async function silentToken() {
+  if (!autoLogin()) return null;
+  // the frame only answers from the registered https origin, not local previews
+  if (location.protocol !== 'https:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return null;
+  try {
+    await idpStart();
+    // establish the client with the hidden google session frame before asking for a token
+    try { await idpCall('monitorClient', { clientId: clientId(), useFedCm: false, fedCmEnabled: false, pluginName: 'todo' }, 6000); } catch {}
+    const r = await idpCall('getTokenResponse', {
+      clientId: clientId(),
+      loginHint: auth.email || '',
+      request: {
+        client_id: clientId(), scope: SCOPES, response_type: 'token',
+        login_hint: auth.email || '', ss_domain: location.origin,
+        include_granted_scopes: 'true', auto: '1'
+      },
+      sessionSelector: { domain: location.origin },
+      forceRefresh: true, userInteracted: false
+    });
+    if (r && r.access_token) {
+      saveToken(r);
+      // a login_hint is only a hint: never let a silent refresh switch accounts
+      try {
+        const me = await withTimeout(gfetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {}, false), 6000);
+        const email = (me && me.emailAddress) || '';
+        if (email && auth.email && email.toLowerCase() !== auth.email.toLowerCase()) {
+          auth.token = null; auth.exp = 0; saveAuth(); return null;
+        }
+        if (email && !auth.email) { auth.email = email; saveAuth(); }
+      } catch {}
+      return auth.token;
+    }
+  } catch {}
+  return null;
+}
+function trySilent(force = false) {
+  if (tokenValid() && !force) return Promise.resolve(true);
+  if (!autoLogin() || silentBusy) return silentBusy || Promise.resolve(false);
+  silentBusy = (async () => {
+    // a stored refresh token is the only reliable renewal path; it is not
+    // affected by third-party cookie blocking or the hidden google frame
+    if (canRefresh()) {
+      const ok = await refreshAccessToken();
+      if (ok || tokenValid()) return true;
+      return false;
+    }
+    // once a secret is configured, the unsupported hidden frame is not a fallback
+    if (clientSecret() || tokenProxy()) return false;
+    return !!(await silentToken());
+  })().then(t => { silentBusy = null; return t; }, () => { silentBusy = null; return false; });
+  return silentBusy;
+}
+function refreshQuietly(force = false) {
+  if (authBusy) return Promise.resolve(false);
+  if (!autoLogin() || (!force && tokenValid())) return Promise.resolve(false);
+  // background refresh is silent only; never open a google popup
+  return trySilent(true).then(ok => {
+    if (ok) { clearTimeout(reconnectTimer); return true; }
+    if (!tokenValid()) {
+      if (googleState !== 'reconnect') { googleState = 'pending'; syncMenuUI(); }
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        if (!tokenValid()) { googleState = 'reconnect'; syncMenuUI(); }
+      }, 60000);
+    }
+    return false;
+  });
+}
+async function getToken({ interactive }) {
+  if (tokenValid()) return auth.token;
+  if (await refreshAccessToken()) return auth.token;
+  if (tokenValid()) return auth.token;
+  if (!interactive) return null;   // never open a popup from a background sync
+  if (authBusy) { await authBusy; return tokenValid() ? auth.token : null; }
+  if (tokenProxy() || clientSecret()) {
+    const code = await requestCode();
+    return exchangeCode(code);
+  }
+  return requestToken(auth.everConnected ? '' : 'consent');
+}
+async function connectGoogle() {
+  if (!clientId()) {
+    const dk = $('#devKeys'), dt = $('#devToggle');
+    if (dk && dt) { dk.classList.add('show'); dt.setAttribute('aria-expanded', 'true'); }
+    setTimeout(() => $('#clientId')?.focus(), 50);
+    toast('paste your google oauth client id once to enable 1-click sign-in');
+    return;
+  }
+  if (authBusy) return authBusy;
+  authBusy = (async () => {
+    const prevEmail = auth.email;
+    try {
+      if (tokenProxy() || clientSecret()) {
+        const code = await requestCode();
+        await exchangeCode(code);
+      } else {
+        await requestToken(auth.everConnected ? '' : 'consent');
+      }
+      let profileEmail = '';
+      try { const p = await gfetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {}, false); profileEmail = p.emailAddress || ''; } catch {}
+      if (prevEmail && profileEmail && profileEmail.toLowerCase() !== prevEmail.toLowerCase()) {
+        // never let a reconnect quietly switch the google account
+        auth.token = null; auth.exp = 0; auth.refresh = '';
+        auth.email = prevEmail; auth.loggedOut = false; auth.everConnected = true;
+        saveAuth(); googleState = 'reconnect'; syncMenuUI();
+        toast('wrong google account — sign in as ' + prevEmail);
+        return false;
+      }
+      if (profileEmail) { auth.email = profileEmail; saveAuth(); }
+      googleState = 'idle'; syncMenuUI(); closeMenu();
+      toast((clientSecret() || tokenProxy()) ? 'google connected — automatic reconnect is on' : 'google connected for 1 hour — add a token proxy or client secret in advanced to stay connected', 12000);
+      await sync({ manual: true });
+      return true;
+    } catch (e) {
+      googleState = e instanceof PopupBlocked ? 'pending' : 'reconnect';
+      toast(e.message || 'sign-in failed'); syncMenuUI();
+      return false;
+    } finally { authBusy = null; }
+  })();
+  return authBusy;
+}
+function disconnectGoogle() {
+  const tok = auth.token, refresh = auth.refresh;
+  if (tok && window.google && google.accounts && google.accounts.oauth2) { try { google.accounts.oauth2.revoke(tok, () => {}); } catch {} }
+  if (refresh) {
+    try {
+      fetch('https://oauth2.googleapis.com/revoke', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ token: refresh })
+      }).catch(() => {});
+    } catch {}
+  }
+  clearTimeout(reconnectTimer); silentFailures = 0; refreshBusy = null;
+  auth = { token: null, exp: 0, email: '', loggedOut: true, everConnected: false, refresh: '' };
+  googleState = 'idle'; saveAuth(); syncMenuUI(); toast('google disconnected');
+}
+async function gfetch(url, opts = {}, interactive = false) {
+  let token = await getToken({ interactive });
+  if (!token) throw new UserError('connect google in the menu');
+  const go = tk => fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + tk } });
+  let res = await go(token);
+  if (res.status === 401) {
+    auth.token = null; saveAuth();
+    token = await getToken({ interactive });
+    if (!token) {
+      googleState = interactive ? 'reconnect' : 'pending'; syncMenuUI();
+      throw new UserError(interactive ? 'google session expired — tap reconnect' : 'google session expired');
+    }
+    res = await go(token);
+  }
+  if (!res.ok) {
+    let m = ''; try { m = (await res.json()).error.message; } catch {}
+    throw new UserError(`google ${res.status}${m ? ': ' + m : ''}`.slice(0, 160));
+  }
+  return res.json();
+}
+
+/* =================== sources =================== */
+async function fetchCalendar(interactive) {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const max = new Date(Date.now() + 30 * 864e5);
+  const q = new URLSearchParams({ timeMin: startOfToday.toISOString(), timeMax: max.toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: '40' });
+  const r = await gfetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?' + q, {}, interactive);
+  return (r.items || []).filter(e => e.status !== 'cancelled').map(e => ({
+    id: e.id, summary: (e.summary || '(no title)').slice(0, 200),
+    start: (e.start && (e.start.dateTime || e.start.date)) || null,
+    end: (e.end && (e.end.dateTime || e.end.date)) || null,
+    location: (e.location || '').slice(0, 120),
+    description: (e.description || '').replace(/<[^>]+>/g, ' ').slice(0, 300)
+  }));
+}
+const BULK_FROM_RE = /(no-?reply|donotreply|newsletter|marketing|promotions|notifications?@|updates?@|digest@|news@|info@|offers?@|deals?@|store@|shop@)/i;
+const NOISE_SUBJ_RE = /\b(unsubscribe|newsletter|digest|receipt|order confirmed|order confirmation|shipped|out for delivery|delivered|tracking number|verification code|security alert|new sign-?in|login alert|password reset|welcome to|terms of service|privacy policy|sale|%\s*off|deal of|free shipping|statement is ready)\b/i;
+const ACTION_RE = /\b(to-?do|task|remind|reminder|due|overdue|deadline|pay|bill|invoice|reply|respond|action required|action needed|rsvp|schedule|appointment|meeting|interview|call|sign|submit|complete|finish|confirm|assignment|homework|exam|quiz|project|renew|expir(e|es|ing)|pick up|return)\b/i;
+
+async function fetchMail(interactive) {
+  const q = new URLSearchParams({ maxResults: '15', q: 'in:inbox newer_than:7d -category:promotions -category:social -category:forums' });
+  const r = await gfetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?' + q, {}, interactive);
+  const msgs = r.messages || [];
+  const seenThreads = new Set();
+  const uniqueMsgs = msgs.filter(m => {
+    const tid = m.threadId || m.id;
+    if (seenThreads.has(tid)) return false;
+    seenThreads.add(tid);
+    return true;
+  });
+  const out = await Promise.all(uniqueMsgs.map(async ({ id, threadId }) => {
+    try {
+      const m = await gfetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, {}, false);
+      const h = n => ((m.payload && m.payload.headers) || []).find(x => x.name.toLowerCase() === n)?.value || '';
+      const from = h('from').slice(0, 120);
+      const subject = h('subject').slice(0, 200);
+      const snippet = (m.snippet || '').slice(0, 300);
+      const combined = `${subject} ${snippet}`;
+      // Skip obvious automated bulk/receipt/promo noise unless it explicitly contains a to-do / reminder signal
+      if (NOISE_SUBJ_RE.test(combined) && !ACTION_RE.test(subject)) return null;
+      if (BULK_FROM_RE.test(from) && !ACTION_RE.test(combined)) return null;
+      return { id, threadId: threadId || id, from, subject, date: h('date'), snippet };
+    } catch { return null; }
+  }));
+  const seenSubj = new Set();
+  return out.filter(m => {
+    if (!m) return false;
+    const cs = canon(m.subject);
+    if (cs && seenSubj.has(cs)) return false;
+    if (cs) seenSubj.add(cs);
+    return true;
+  });
+}
+
+/* =================== ai (openrouter free + gemini) =================== */
+const TASK_SCHEMA = {
+  type: 'ARRAY',
+  items: {
+    type: 'OBJECT',
+    properties: {
+      title: { type: 'STRING' },
+      due: { type: 'STRING', nullable: true },
+      source: { type: 'STRING', enum: ['mail', 'cal'] },
+      sourceId: { type: 'STRING' }
+    },
+    required: ['title', 'source', 'sourceId']
+  }
+};
+function parseAiJson(raw) {
+  let s = String(raw || '').trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
+  if (!s) return [];
+  try { return JSON.parse(s); } catch {}
+  const a = s.indexOf('['), b = s.lastIndexOf(']');
+  if (a !== -1 && b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch {} }
+  throw new Error('unreadable');
+}
+async function callOpenRouter(prompt) {
+  const key = (settings.openRouterKey || '').trim();
+  if (!key) throw new UserError('ai is not configured');
+  const busyModels = [];
+  for (const model of OR_FREE_MODELS) {
+    let res;
+    try {
+      res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + key,
+          'X-Title': 'to:do'
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.1,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+    } catch { throw new UserError('network error reaching openrouter'); }
+    if (res.ok) {
+      const data = await res.json();
+      const used = (data && data.model) || model;
+      const notice = busyModels.length ? `${busyModels[0]} is busy right now — used ${used}` : '';
+      if (notice) toast(notice + ' for this sync', 4200);
+      const msg = data && data.choices && data.choices[0] && data.choices[0].message;
+      const text = (msg && typeof msg.content === 'string') ? msg.content : '[]';
+      let parsed;
+      try { parsed = parseAiJson(text); } catch { throw new UserError('ai returned something unreadable — try again' + (notice ? ` (${notice})` : '')); }
+      return { model: used, result: parsed, notice };
+    }
+    let msg = ''; try { msg = (await res.json()).error?.message || ''; } catch {}
+    const s = res.status;
+    if (s === 429 || s === 503 || (s === 404 && model !== OR_FREE_MODELS[0])) { busyModels.push(model); continue; }
+    throw new UserError(`openrouter ${s}${msg ? ': ' + msg : ''}`.slice(0, 180));
+  }
+  throw new UserError('all free ai models are busy right now — try again in a bit');
+}
+async function callGemini(prompt, schema) {
+  const key = (settings.geminiKey || '').trim();
+  if (!key) throw new UserError('add a gemini api key in the menu');
+  const chain = modelChain(settings.model);
+  const busyModels = [];
+  for (const model of chain) {
+    let res;
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.2 }
+        })
+      });
+    } catch { throw new UserError('network error reaching gemini'); }
+    if (res.ok) {
+      const data = await res.json();
+      const notice = busyModels.length ? `${busyModels[0]} is busy right now — used ${model}` : '';
+      if (notice) toast(notice + ' for this sync', 4200);
+      const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+      const text = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('');
+      let parsed;
+      try { parsed = JSON.parse(text || '[]'); } catch { throw new UserError('ai returned something unreadable — try again' + (notice ? ` (${notice})` : '')); }
+      return { model, result: parsed, notice };
+    }
+    let msg = ''; try { msg = (await res.json()).error.message || ''; } catch {}
+    const s = res.status;
+    // 429 / 503 → fall back. 404 on a *fallback* model (not available to this key) → keep falling back.
+    if (s === 429 || s === 503 || (s === 404 && model !== chain[0])) { busyModels.push(model); continue; }
+    throw new UserError(`gemini ${s}${msg ? ': ' + msg : ''}`.slice(0, 180));
+  }
+  throw new UserError('all gemini models are busy right now — try again in a bit');
+}
+
+function buildPrompt(events, mails) {
+  const now = new Date();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+  const existing = tasks.filter(t => !t.done).map(t => t.text).slice(0, 50);
+  return [
+    'You turn calendar events and actionable emails into a clean to-do list.',
+    `Current time: ${now.toString()} (timezone ${tz}). ISO: ${now.toISOString()}.`,
+    'Rules:',
+    '- Output ONLY a JSON array of to-dos. No explanations, no summaries.',
+    '- CALENDAR EVENTS: Include upcoming calendar events.',
+    '- EMAILS (BE STRICT): ONLY include an email if it is a real to-do or needs reminding — e.g. someone asking for a reply or action, a bill/invoice to pay, an assignment/deadline, a form to sign, an appointment to confirm/attend, or a concrete task.',
+    '- SKIP all newsletters, marketing, promotions, receipts, order/shipping updates, social/app notifications, verification codes, automated alerts, and FYI-only emails. If no emails require action or reminding, return [] for emails.',
+    '- title: short imperative, all lowercase, max 60 characters, no trailing period (e.g. "reply to sam about the lease", "pay electric bill", "dentist appointment").',
+    '- due: ISO 8601 with timezone offset if there is a time, "YYYY-MM-DD" if only a date, or null. For calendar events use the event start.',
+    '- source: MUST be "cal" for calendar events, or "mail" for emails. sourceId: copy the exact id from the input.',
+    '- NO DUPLICATES: At most one to-do per source item or topic. Never repeat an item already in EXISTING TASKS. If an email and a calendar event describe the same thing, keep only the calendar one.',
+    '',
+    'EXISTING TASKS (do not duplicate):', JSON.stringify(existing),
+    '',
+    'CALENDAR EVENTS:', JSON.stringify(events),
+    '',
+    'EMAILS:', JSON.stringify(mails)
+  ].join('\n');
+}
+
+// Merge AI output into tasks: validates ids, de-duplicates, and honours tombstones.
+function mergeAiTasks(items, valid) {
+  if (!Array.isArray(items)) items = (items && (items.tasks || items.todos || items.items)) || [];
+  if (!Array.isArray(items)) items = [];
+  const seenKeys = new Set(tasks.map(t => t.sourceKey).filter(Boolean));
+  // seenDated: "title@day" of calendar tasks (any state). seenPlain: titles that block any source
+  // (mail tasks in any state, open manual / undated tasks). openTitles: every open task's title.
+  const seenDated = new Set(), seenPlain = new Set(), openTitles = new Set(), openCanon = new Set();
+  tasks.forEach(t => [t.text, t.aiTitle].forEach(s => {
+    const n = norm(s); if (!n) return;
+    const c = canon(s);
+    if (!t.done) { openTitles.add(n); if (c) openCanon.add(c); }
+    const k = titleKey(s, t.source, t.due);
+    if (k !== n) seenDated.add(k);
+    else if (t.source === 'mail' || !t.done) { seenPlain.add(n); if (c) seenPlain.add(c); }
+  }));
+  let added = 0;
+  for (const it of items) {
+    if (!it || typeof it !== 'object') continue;
+    const rawSrc = String(it.source || '').trim().toLowerCase();
+    const source = /^(cal|calendar|event|events)$/.test(rawSrc) ? 'cal' : /^(mail|email|emails|gmail|inbox)$/.test(rawSrc) ? 'mail' : null;
+    const sid = String(it.sourceId ?? it.id ?? '').trim().replace(/^(cal|mail|calendar|email):/i, '');
+    if (!source || !sid) continue;
+    const key = source + ':' + sid;
+    if (!valid.has(key)) continue;                 // hallucinated id
+    const rawTitle = it.title || it.summary || it.task || it.text || '';
+    const title = String(rawTitle).trim().toLowerCase().replace(/\.$/, '').slice(0, 120);
+    const nt = norm(title), ct = canon(title);
+    if (!nt) continue;
+    // calendar: trust the real event start over the model's reading of it
+    const d = source === 'cal' ? (parseDue(valid.get(key)) || parseDue(it.due)) : parseDue(it.due);
+    const tk = titleKey(title, source, d && d.iso);
+    const ctk = ct && source === 'cal' && d && d.iso ? ct + '@' + dayKey(d.iso) : ct;
+    if (tomb.has(key) || tomb.has('t:' + tk) || (ctk && tomb.has('t:' + ctk))) continue;   // user deleted it before
+    if (seenKeys.has(key) || seenPlain.has(nt) || (ct && seenPlain.has(ct)) || seenDated.has(tk) || (ctk && seenDated.has(ctk))) continue; // already have it
+    if (source === 'mail' && (openTitles.has(nt) || (ct && openCanon.has(ct)))) continue;
+    addTask({ text: title, due: d ? d.iso : null, allDay: d ? d.allDay : false, source, sourceKey: key, aiTitle: title });
+    seenKeys.add(key); openTitles.add(nt); if (ct) openCanon.add(ct);
+    if (tk !== nt) { seenDated.add(tk); if (ctk) seenDated.add(ctk); }
+    else { seenPlain.add(nt); if (ct) seenPlain.add(ct); }
+    added++;
+  }
+  return added;
+}
+
+let syncing = false;
+function setSyncing(on) {
+  syncing = on;
+  const icon = $('#syncIcon');
+  if (icon) icon.classList.toggle('spin', on);
+}
+const hasAiKey = () => !!(settings.openRouterKey || '').trim();
+async function sync({ manual = false } = {}) {
+  if (syncing) { if (manual) toast('already syncing…'); return; }
+  const wantCal = settings.useCal, wantMail = settings.useMail;
+  try {
+    if (!hasAiKey()) throw new UserError('ai is not configured');
+    if (!wantCal && !wantMail) throw new UserError('link calendar or email in the menu');
+    setSyncing(true);
+    if (manual) toast('syncing…', 10000);
+    // never open a google popup while syncing: use the refresh token or silent frame
+    let token = await getToken({ interactive: false });
+    if (!token && autoLogin() && !authBusy) {
+      await trySilent(true);
+      token = await getToken({ interactive: false });
+    }
+    if (!token) {
+      if (autoLogin()) { googleState = 'reconnect'; syncMenuUI(); }
+      throw new UserError(auth.everConnected ? 'google session expired — reconnect from the menu' : 'connect google in the menu');
+    }
+    let events = [], mails = [], calErr = null, mailErr = null;
+    await Promise.all([
+      wantCal ? fetchCalendar(false).then(r => { events = r; }).catch(e => { calErr = e; }) : Promise.resolve(),
+      wantMail ? fetchMail(false).then(r => { mails = r; }).catch(e => { mailErr = e; }) : Promise.resolve()
+    ]);
+    if (calErr && mailErr) throw calErr;
+    if ((wantCal && !wantMail && calErr) || (wantMail && !wantCal && mailErr)) throw (calErr || mailErr);
+    const valid = new Map();
+    events.forEach(e => valid.set('cal:' + e.id, e.start));
+    mails.forEach(m => valid.set('mail:' + m.id, null));
+    // only send items that aren't already tasks, deleted, or previously inspected non-todo emails
+    const known = new Set([...tasks.map(t => t.sourceKey).filter(Boolean), ...tomb]);
+    const evIn = events.filter(e => !known.has('cal:' + e.id));
+    const mlIn = mails.filter(m => !known.has('mail:' + m.id) && !seenMail.has('mail:' + m.id) && !(m.threadId && seenMail.has('thread:' + m.threadId)));
+    let added = 0, notice = '';
+    if (evIn.length || mlIn.length) {
+      const gKey = (settings.geminiKey || '').trim();
+      const useGemini = gKey && !gKey.startsWith('sk-or-');
+      // Give short alias IDs (c1, m1) when calling OpenRouter so smaller models never mangle long hex IDs
+      const aliasToReal = new Map();
+      const evPrompt = useGemini ? evIn : evIn.map((e, i) => { const a = 'c' + (i + 1); aliasToReal.set('cal:' + a, e.id); return { ...e, id: a }; });
+      const mlPrompt = useGemini ? mlIn : mlIn.map((m, i) => { const a = 'm' + (i + 1); aliasToReal.set('mail:' + a, m.id); return { ...m, id: a }; });
+      let aiItems = [], aiOk = false;
+      try {
+        const r = useGemini ? await callGemini(buildPrompt(evPrompt, mlPrompt), TASK_SCHEMA) : await callOpenRouter(buildPrompt(evPrompt, mlPrompt));
+        notice = r.notice || '';
+        const rawList = Array.isArray(r.result) ? r.result : ((r.result && (r.result.tasks || r.result.todos || r.result.items)) || []);
+        aiItems = rawList.map(it => {
+          if (!it || typeof it !== 'object') return it;
+          const rawSrc = String(it.source || '').trim().toLowerCase();
+          const src = /^(cal|calendar|event|events)$/.test(rawSrc) ? 'cal' : /^(mail|email|emails|gmail|inbox)$/.test(rawSrc) ? 'mail' : it.source;
+          const sid = String(it.sourceId ?? it.id ?? '').trim().replace(/^(cal|mail|calendar|email):/i, '');
+          const realId = aliasToReal.get(src + ':' + sid) || sid;
+          return { ...it, source: src, sourceId: realId };
+        });
+        aiOk = true;
+      } catch (aiErr) {
+        if (useGemini) throw aiErr;
+        console.warn('openrouter fallback for calendar events:', aiErr);
+      }
+      // Record inspected emails so skipped non-actionable emails aren't re-sent every minute
+      if (aiOk) {
+        mlIn.forEach(m => {
+          seenMail.add('mail:' + m.id);
+          if (m.threadId) seenMail.add('thread:' + m.threadId);
+        });
+      }
+      // Ensure upcoming calendar events aren't dropped if a free model omitted them (never dump raw emails!)
+      if (!useGemini && evIn.length) {
+        evIn.forEach(e => {
+          if (!aiItems.some(x => x && x.source === 'cal' && String(x.sourceId) === String(e.id))) {
+            aiItems.push({ title: e.summary, due: e.start, source: 'cal', sourceId: e.id });
+          }
+        });
+      }
+      added = mergeAiTasks(aiItems, valid);
+    }
+    meta.lastSync = Date.now(); saveMeta();
+    if (added) { saveTasks(); render(); }
+    const partialWarn = calErr ? ' · calendar api not enabled yet' : mailErr ? ' · gmail api not enabled yet' : '';
+    const emptyHint = (!events.length && !mails.length && !partialWarn) ? ' (no upcoming events or inbox mail)' : '';
+    // keep the model-fallback notice visible: append it rather than overwrite it
+    if (manual || added) {
+      const where = added && activeListId !== DEFAULT_LIST_ID ? ' in my tasks' : '';
+      toast((added ? `+${added} new${where}` : 'all caught up' + emptyHint) + partialWarn + (notice ? ` · ${notice}` : ''), (notice || partialWarn) ? 5200 : 3200);
+    }
+  } catch (e) {
+    if (manual) toast(e instanceof UserError ? e.message : 'sync failed');
+    else console.warn('sync:', e);
+  } finally {
+    setSyncing(false); syncMenuUI();
+  }
+}
+
+function createCalEvent(text, start, interactive = true) {
+  const end = new Date(start.getTime() + 60 * 60000);
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return gfetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ summary: text, start: { dateTime: start.toISOString(), timeZone: tz }, end: { dateTime: end.toISOString(), timeZone: tz } })
+  }, interactive);
+}
+// a dated task added while google calendar is connected also becomes an event
+async function autoCalendarEvent(id, text, due) {
+  if (!settings.useCal || !tokenValid() || auth.loggedOut || !clientId()) return;
+  const start = new Date(due);
+  if (isNaN(start)) return;
+  try {
+    const ev = await createCalEvent(text, start, false);
+    if (!ev || !ev.id) return;
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    t.source = 'cal'; t.sourceKey = 'cal:' + ev.id; t.aiTitle = t.aiTitle || text;
+    saveTasks(); render();
+    const label = fmtDue({ due: t.due });
+    toast('added to calendar' + (label ? ' · ' + label.label : ''));
+  } catch (e) { console.warn('calendar add:', e); }
+}
+
+/* =================== reminders =================== */
+const NOTIFY_WINDOW = 2 * 3600e3; // stop chasing a task two hours after it was due
+const notificationsSupported = () => typeof Notification !== 'undefined';
+const notificationAllowed = () => notificationsSupported() && Notification.permission === 'granted';
+function dueMoment(t) {
+  if (!t.due) return null;
+  const d = new Date(t.due);
+  if (isNaN(d)) return null;
+  if (t.allDay) d.setHours(9, 0, 0, 0); // all-day tasks nudge at 9am
+  return d;
+}
+async function showTaskNotification(t) {
+  if (!notificationAllowed()) return false;
+  const label = fmtDue(t);
+  const body = (label ? 'due ' + label.label : 'to:do reminder') + ' · to:do';
+  const icon = new URL('icon-192.png', location.href).href;
+  const opts = { body, tag: 'todo:' + t.id, silent: !settings.notifySound, icon, badge: icon, data: { id: t.id }, ...(settings.vibrate ? { vibrate: VIBE.reminder } : {}) };
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) { await reg.showNotification(t.text, opts); return true; }
+    }
+  } catch {}
+  try {
+    const n = new Notification(t.text, opts);
+    n.onclick = () => { try { window.focus(); } catch {} };
+    return true;
+  } catch { return false; }
+}
+let reminding = false;
+async function reminderTick() {
+  if (reminding || !settings.notify || !notificationAllowed()) return;
+  const leads = (Array.isArray(settings.notifyLeads) ? settings.notifyLeads : []).map(Number).filter(n => Number.isFinite(n) && n >= 0);
+  if (!leads.length) return;
+  reminding = true;
+  let changed = false;
+  try {
+    const now = Date.now();
+    for (const t of tasks) {
+      if (t.done || !t.due || t.notify === false) continue;
+      const due = dueMoment(t);
+      if (!due) continue;
+      const dueAt = due.getTime();
+      if (now - dueAt > NOTIFY_WINDOW) continue;
+      const fired = new Set(Array.isArray(t.notifiedLeads) ? t.notifiedLeads.map(Number) : []);
+      const past = leads
+        .filter(m => !fired.has(m) && dueAt - m * 60000 <= now)
+        .map(m => ({ m, at: dueAt - m * 60000 }))
+        .sort((a, b) => a.at - b.at);
+      if (!past.length) continue;
+      if (await showTaskNotification(t)) {
+        t.notifiedLeads = [...new Set([...fired, ...past.map(x => x.m)])];
+        changed = true;
+      }
+    }
+  } finally { reminding = false; }
+  if (changed) saveTasks();
+}
+function syncNotifyUI() {
+  const st = $('#notifyStatus'), btn = $('#notifyBtn');
+  if (!st || !btn) return;
+  if (!notificationsSupported()) { st.textContent = 'not supported'; st.classList.remove('raw'); btn.hidden = true; return; }
+  btn.hidden = false;
+  const p = Notification.permission;
+  if (p === 'granted') { st.textContent = 'on · allowed'; st.classList.add('raw'); btn.textContent = 'test'; btn.classList.remove('solid'); }
+  else if (p === 'denied') { st.textContent = 'blocked in browser'; st.classList.remove('raw'); btn.textContent = 'allow notifications'; btn.classList.add('solid'); }
+  else { st.textContent = 'not enabled'; st.classList.remove('raw'); btn.textContent = 'allow notifications'; btn.classList.add('solid'); }
+}
+async function askNotifications() {
+  if (!notificationsSupported()) { toast('notifications are not supported'); return; }
+  if (Notification.permission === 'granted') {
+    const t = tasks.find(x => !x.done && x.due) || { id: 'test', text: 'to:do', due: new Date(Date.now() + 60000).toISOString(), allDay: false };
+    await showTaskNotification(t);
+    return;
+  }
+  if (Notification.permission === 'denied') { toast('notifications are blocked in your browser settings'); return; }
+  try {
+    const p = await Notification.requestPermission();
+    syncNotifyUI();
+    if (p === 'granted') { toast('notifications on'); reminderTick(); }
+    else toast('notifications not enabled');
+  } catch { toast('notifications not enabled'); }
+}
+
+/* =================== motto =================== */
+let mottoIdx = Math.floor(Math.random() * MOTTOS.length);
+function nextMotto() {
+  const el = $('#motto'); if (!el) return;
+  mottoIdx = (mottoIdx + 1) % MOTTOS.length;
+  el.classList.add('fade');
+  setTimeout(() => { el.textContent = MOTTOS[mottoIdx]; el.classList.remove('fade'); }, dur(180));
+}
+
+/* =================== events =================== */
+$('#motto').addEventListener('click', nextMotto);
+$('#motto').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nextMotto(); } });
+function onListClick(e) {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const li = b.closest('.item'); const id = li && li.dataset.id; if (!id) return;
+  if (b.dataset.act === 'check') toggleDone(id, li);
+  else if (b.dataset.act === 'edit') openSheet(id);
+}
+$('#list').addEventListener('click', onListClick);
+$('#overdueList').addEventListener('click', onListClick);
+$('#doneList').addEventListener('click', onListClick);
+$('#fab').addEventListener('click', () => sheetOpen() ? closeSheet() : openSheet());
+$('#searchBtn').addEventListener('click', () => { buzz('tap'); toggleSearch(); });
+$('#searchInput').addEventListener('input', () => {
+  searchQuery = $('#searchInput').value.trim();
+  $('#searchClear').hidden = !searchQuery;
+  if (searchOpen) render();
+});
+$('#searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSearch(); }
+});
+$('#searchClear').addEventListener('click', () => {
+  const i = $('#searchInput');
+  i.value = ''; searchQuery = ''; $('#searchClear').hidden = true; i.focus(); render();
+});
+$('#scrim').addEventListener('click', () => { closeSheet(); closeMenu(); });
+$('#form').addEventListener('submit', e => { e.preventDefault(); submitSheet(); });
+$('#taskDue').addEventListener('input', e => setDueInput(e.target.value));
+$('#clearDue').addEventListener('click', () => setDueInput(''));
+$('#notifyChip').addEventListener('click', () => { notifyOn = !notifyOn; setNotifyChip(); });
+$('#delBtn').addEventListener('click', () => {
+  if (!editingId) return;
+  const id = editingId; buzz('delete'); closeSheet();
+  const li = document.querySelector(`.item[data-id="${CSS.escape(id)}"]`);
+  if (li) { li.classList.add('leaving'); setTimeout(() => { deleteTask(id); render(); }, dur(320)); }
+  else { deleteTask(id); render(); }
+});
+$('#devToggle').addEventListener('click', () => {
+  const on = !$('#devKeys').classList.contains('show');
+  $('#devKeys').classList.toggle('show', on); $('#devToggle').setAttribute('aria-expanded', String(on));
+});
+$('#listTabs').addEventListener('click', e => {
+  const b = e.target.closest('.listtab'); if (!b) return;
+  switchList(b.dataset.listId);
+});
+$('#addListBtn').addEventListener('click', () => {
+  if (listFormOpen) closeListForm(); else openListForm();
+});
+$('#listCancel').addEventListener('click', closeListForm);
+$('#listForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const input = $('#listName');
+  const name = input.value.trim().replace(/\s+/g, ' ').slice(0, 40);
+  if (!name) { buzz('error'); toast('name your list'); input.focus(); return; }
+  if (listSwitching || busy.size || animating.size) { toast('one moment'); return; }
+  if (lists.some(l => l.id !== editingListId && l.name.toLowerCase() === name.toLowerCase())) {
+    buzz('error'); toast('that list already exists'); input.focus(); return;
+  }
+  if (editingListId) {
+    const l = lists.find(x => x.id === editingListId);
+    if (l) { l.name = name; saveLists(); renderListTabs(); }
+    closeListForm();
+    return;
+  }
+  const id = uid();
+  lists.push({ id, name, createdAt: Date.now() });
+  saveLists(); closeListForm(); switchList(id);
+});
+$('#listMore').addEventListener('click', e => {
+  e.stopPropagation();
+  const m = $('#listMenu'); m.hidden = !m.hidden;
+  e.currentTarget.setAttribute('aria-expanded', String(!m.hidden));
+});
+$('#renameList').addEventListener('click', () => openListForm(activeListId));
+$('#deleteList').addEventListener('click', () => {
+  const l = lists.find(x => x.id === activeListId);
+  if (!l || l.id === DEFAULT_LIST_ID || listSwitching || busy.size || animating.size) return;
+  const doomed = tasks.filter(t => taskListId(t) === l.id);
+  const msg = doomed.length ? `delete "${l.name}"? all ${doomed.length} task${doomed.length === 1 ? '' : 's'} in it will be removed.` : `delete "${l.name}"?`;
+  if (!confirm(msg)) return;
+  buzz('delete');
+  doomed.forEach(buryTask);
+  saveTomb();
+  tasks = tasks.filter(t => taskListId(t) !== l.id);
+  saveTasks();
+  lists = lists.filter(x => x.id !== l.id);
+  saveLists();
+  closeListMenu();
+  switchList(DEFAULT_LIST_ID);
+  toast(`deleted ${l.name}`);
+});
+document.addEventListener('pointerdown', e => {
+  if ($('#listMenu').hidden) return;
+  if (e.target instanceof Element && e.target.closest('#listMenu,#listMore')) return;
+  closeListMenu();
+}, true);
+$('#menuBtn').addEventListener('click', () => $('#menu').classList.contains('show') ? closeMenu() : openMenu());
+$('#menuClose').addEventListener('click', closeMenu);
+$('#doneToggle').addEventListener('click', () => { settings.doneCollapsed = !settings.doneCollapsed; saveSettings(); render(); });
+let clearingDone = false;
+$('#clearDone').addEventListener('click', () => {
+  if (clearingDone) return;
+  const done = tasks.filter(t => t.done && taskListId(t) === activeListId); if (!done.length) return;
+  clearingDone = true;
+  buzz('delete');
+  const btn = $('#clearDone');
+  btn.disabled = true;
+  const wait = settings.doneCollapsed ? 0 : dur(240) + 30;
+  $('#doneList').querySelectorAll('.item').forEach(r => r.classList.add('leaving'));
+  setTimeout(() => {
+    done.forEach(buryTask); saveTomb();
+    tasks = tasks.filter(t => !(t.done && taskListId(t) === activeListId)); saveTasks(); render(); toast(`cleared ${done.length}`);
+    clearingDone = false; btn.disabled = false;
+  }, wait);
+});
+document.querySelectorAll('[data-setting]').forEach(i => i.addEventListener('input', () => {
+  settings[i.dataset.setting] = i.value; saveSettings(); applySettings();
+  if (i.dataset.setting === 'clientSecret' || i.dataset.setting === 'tokenProxy') syncMenuUI();
+  if (i.dataset.setting === 'clientId' && i.value.trim().endsWith('.apps.googleusercontent.com')) loadGis().catch(() => {});
+  if (i.dataset.setting === 'tokenProxy' && tokenProxy()) loadGis().catch(() => {});
+}));
+document.querySelectorAll('[data-seg]').forEach(g => g.addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  const k = g.dataset.seg;
+  if (k === 'notifyLeads') {
+    const v = +b.dataset.v;
+    const vals = new Set((Array.isArray(settings.notifyLeads) ? settings.notifyLeads : []).map(Number));
+    if (vals.has(v)) vals.delete(v); else vals.add(v);
+    settings.notifyLeads = [...vals].sort((a, c) => a - c);
+    saveSettings(); syncMenuUI(); reminderTick();
+    return;
+  }
+  let v = 'num' in g.dataset ? +b.dataset.v : b.dataset.v;
+  if (k === 'model') v = sanitizeModel(v);
+  settings[k] = v; saveSettings(); applySettings(); syncMenuUI();
+}));
+document.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.toggle;
+  if ((k === 'useCal' || k === 'useMail') && !googleLinked()) {
+    toast(k === 'useCal' ? 'sign in with google to link calendar' : 'sign in with google to link email');
+    return;
+  }
+  settings[k] = !settings[k]; saveSettings(); applySettings(); syncMenuUI();
+  if (k === 'vibrate') {
+    if (settings.vibrate && typeof navigator.vibrate !== 'function') toast("this browser doesn't support vibration");
+    else if (settings.vibrate) buzz('tap');
+  }
+  if (k === 'clock24' || k === 'doneCollapsed') render();
+  if (k === 'notify' && settings.notify && notificationsSupported() && Notification.permission === 'default') askNotifications();
+}));
+
+// colors
+function setThemeColor(key, value) {
+  const mode = settings.mode === 'light' ? 'light' : 'dark';
+  if (!settings.colors) settings.colors = {};
+  if (!settings.colors[mode]) settings.colors[mode] = { ...COLOR_DEFAULTS[mode] };
+  settings.colors[mode][key] = key === 'accent' ? (hexColor(value) || '') : (hexColor(value) || COLOR_DEFAULTS[mode][key]);
+  saveSettings(); applySettings(); syncMenuUI();
+}
+document.querySelectorAll('[data-accent]').forEach(b => b.addEventListener('click', () => setThemeColor('accent', b.dataset.accent)));
+$('#accentColor').addEventListener('input', e => setThemeColor('accent', e.target.value));
+$('#bgColor').addEventListener('input', e => setThemeColor('bg', e.target.value));
+$('#fgColor').addEventListener('input', e => setThemeColor('fg', e.target.value));
+$('#resetColors').addEventListener('click', () => {
+  const mode = settings.mode === 'light' ? 'light' : 'dark';
+  if (!settings.colors) settings.colors = {};
+  settings.colors[mode] = { ...COLOR_DEFAULTS[mode] };
+  saveSettings(); applySettings(); syncMenuUI(); toast('colors reset');
+});
+$('#gBtn').addEventListener('click', () => {
+  if (tokenValid()) disconnectGoogle();
+  else connectGoogle();
+});
+$('#renewBtn').addEventListener('click', () => connectGoogle());
+$('#renewHintLink').addEventListener('click', e => {
+  e.preventDefault();
+  if (tokenProxy()) { connectGoogle(); return; }
+  $('#devKeys').classList.add('show');
+  $('#devToggle').setAttribute('aria-expanded', 'true');
+  setTimeout(() => {
+    const field = $('#tokenProxy') || $('#clientSecret');
+    field.scrollIntoView({ block: 'center' });
+    field.focus();
+  }, dur(300) + 60);
+});
+$('#clientSecret').addEventListener('change', () => {
+  syncMenuUI();
+  if (clientSecret() && !canRefresh() && auth.everConnected) toast('secret saved — tap enable automatic reconnect', 8000);
+});
+$('#importClientBtn').addEventListener('click', () => $('#importClientFile').click());
+$('#importClientFile').addEventListener('change', async () => {
+  const input = $('#importClientFile'), f = input.files && input.files[0];
+  if (!f) return;
+  try {
+    const text = f.text ? await f.text() : await new Promise((res, rej) => {
+      const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(f);
+    });
+    importClientJson(text);
+    toast('client imported — tap enable automatic reconnect', 9000);
+  } catch (e) {
+    toast(e.message || "couldn't import that client file");
+  }
+  input.value = '';
+});
+$('#notifyBtn').addEventListener('click', askNotifications);
+// an expired token renews through the silent google frame. a normal tap must
+// never open a popup; if google needs an interactive sign-in, the menu says so.
+let gestureAt = 0;
+let autoGrantAt = 0;
+function autoGrant() {
+  if ((!tokenProxy() && !clientSecret()) || !autoLogin() || auth.refresh || authBusy) return false;
+  if (Date.now() < autoGrantAt) return false;
+  autoGrantAt = Date.now() + 30000;
+  connectGoogle().then(ok => {
+    if (!ok) autoGrantAt = Date.now() + (googleState === 'pending' ? 15000 : 5 * 60e3);
+  });
+  return true;
+}
+function onGesture(e) {
+  if (e && e.type === 'pointerdown' && e.target instanceof Element && e.target.closest('#menuBtn') && autoGrant()) return;
+  if (e && e.target && e.target.closest && e.target.closest('#menu,#sheet')) return;
+  if (!autoLogin() || authBusy) return;
+  const now = Date.now();
+  if (tokenValid()) {
+    // refresh a little before expiry so opening the app later stays quiet
+    if (auth.exp - now > 10 * 60e3) return;
+    if (now - gestureAt < 60000) return;
+    gestureAt = now;
+    refreshQuietly(true).then(ok => { if (ok && canSync()) sync(); });
+    return;
+  }
+  if (now - gestureAt < 5000) return;
+  gestureAt = now;
+  refreshQuietly().then(ok => { if (ok && canSync()) sync(); });
+}
+document.addEventListener('pointerdown', onGesture, { capture: true, passive: true });
+document.addEventListener('keydown', onGesture, { capture: true });
+$('#exportBtn').addEventListener('click', () => {
+  const data = { app: 'todo', v: 2, tasks: tasks.map(t => ({ ...t, listId: taskListId(t) })), lists, activeList: activeListId, tomb: [...tomb] };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'todo-export.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
+$('#installBtn').addEventListener('click', async () => {
+  const p = installPrompt || window.__installPrompt;
+  if (p) {
+    installPrompt = null; window.__installPrompt = null;
+    p.prompt();
+    try { await p.userChoice; } catch {}
+  } else location.href = 'help.html#install';
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || !Array.isArray(d.tasks)) throw 0;
+    (Array.isArray(d.lists) ? d.lists : []).forEach(l => {
+      if (!l || typeof l !== 'object') return;
+      const id = typeof l.id === 'string' ? l.id : '';
+      const name = String(l.name || '').trim().slice(0, 40);
+      if (!id || !name || id === DEFAULT_LIST_ID || lists.some(x => x.id === id)) return;
+      lists.push({ id, name, createdAt: +l.createdAt || Date.now() });
+    });
+    saveLists(); renderListTabs();
+    const have = new Set(tasks.map(t => t.id));
+    let n = 0;
+    d.tasks.forEach(t => {
+      if (!t || typeof t.text !== 'string' || !t.text.trim()) return;
+      const listId = typeof t.listId === 'string' && lists.some(l => l.id === t.listId) ? t.listId : DEFAULT_LIST_ID;
+      const x = { id: typeof t.id === 'string' && !have.has(t.id) ? t.id : uid(), text: t.text.slice(0, 240), due: parseDue(t.due)?.iso || null, allDay: !!t.allDay,
+        done: !!t.done, doneAt: +t.doneAt || 0, createdAt: +t.createdAt || Date.now(), source: t.source === 'mail' || t.source === 'cal' ? t.source : null,
+        sourceKey: typeof t.sourceKey === 'string' ? t.sourceKey : null, aiTitle: typeof t.aiTitle === 'string' ? t.aiTitle : null,
+        notify: t.notify !== false, notifiedLeads: Array.isArray(t.notifiedLeads) ? t.notifiedLeads.map(Number).filter(n => Number.isFinite(n) && n >= 0) : [], listId };
+      if (x.sourceKey && tasks.some(y => y.sourceKey === x.sourceKey)) return;
+      tasks.push(x); have.add(x.id); n++;
+    });
+    (Array.isArray(d.tomb) ? d.tomb : []).forEach(k => typeof k === 'string' && tomb.add(k));
+    saveTasks(); saveTomb(); render(); toast(`imported ${n}`);
+  } catch { toast("that file doesn't look like a to:do export"); }
+});
+$('#resetBtn').addEventListener('click', () => {
+  if (!confirm('delete all tasks, settings and keys from this browser?')) return;
+  Object.keys(localStorage).filter(k => k.startsWith(NS)).forEach(k => localStorage.removeItem(k));
+  location.reload();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!$('#listMenu').hidden) { closeListMenu(); return; }
+    if (!$('#listForm').hidden) { closeListForm(); return; }
+    if (sheetOpen()) closeSheet(); else closeMenu(); return;
+  }
+  const typing = /^(input|textarea|select)$/i.test(document.activeElement?.tagName || '');
+  if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'n' || e.key === '+')) { e.preventDefault(); openSheet(); }
+});
+window.addEventListener('storage', e => {
+  if (!e.key || !e.key.startsWith(NS)) return;
+  tasks = store.get('tasks', []); tomb = new Set(store.get('tomb', []));
+  settings = Object.assign({}, DEFAULTS, store.get('settings', {}));
+  auth = Object.assign({ token: null, exp: 0, email: '', loggedOut: false, everConnected: false }, store.get('auth', {}));
+  applySettings(); if (!busy.size && !animating.size && !listSwitching) render(); syncMenuUI();
+});
+
+/* =================== lists =================== */
+let editingListId = null;
+let listFormOpen = false;
+let listFormTimer = 0;
+const closeListMenu = () => { const m = $('#listMenu'); if (m) m.hidden = true; const b = $('#listMore'); if (b) b.setAttribute('aria-expanded', 'false'); };
+function renderListTabs() {
+  const tabs = $('#listTabs');
+  const active = lists.find(l => l.id === activeListId) || lists[0];
+  tabs.replaceChildren(...lists.map(l => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'listtab'; b.role = 'tab';
+    b.dataset.listId = l.id; b.textContent = l.name; b.setAttribute('aria-controls', 'taskArea');
+    b.setAttribute('aria-selected', String(l.id === active.id));
+    return b;
+  }));
+  $('#listMore').hidden = active.id === DEFAULT_LIST_ID;
+  const on = tabs.querySelector('[aria-selected="true"]');
+  if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function openListForm(editId = null) {
+  closeListMenu();
+  clearTimeout(listFormTimer);
+  editingListId = editId;
+  listFormOpen = true;
+  const l = editId && lists.find(x => x.id === editId);
+  const wrap = $('#listFormWrap'), input = $('#listName');
+  const wasHidden = wrap.hidden;
+  wrap.hidden = false; wrap.inert = false;
+  $('#addListBtn').setAttribute('aria-expanded', 'true');
+  input.value = l ? l.name : '';
+  $('#listSubmit').textContent = l ? 'save' : 'add';
+  if (wasHidden) {
+    wrap.classList.add('off');
+    void wrap.offsetHeight;
+    requestAnimationFrame(() => { if (listFormOpen) wrap.classList.remove('off'); });
+  } else wrap.classList.remove('off');
+  setTimeout(() => { try { if (listFormOpen) { input.focus(); input.select(); } } catch {} }, dur(200) + 60);
+}
+function closeListForm() {
+  const wrap = $('#listFormWrap');
+  if (!wrap) return;
+  clearTimeout(listFormTimer);
+  listFormOpen = false; editingListId = null;
+  $('#addListBtn').setAttribute('aria-expanded', 'false');
+  if (wrap.hidden) return;
+  wrap.inert = true;
+  wrap.classList.add('off');
+  listFormTimer = setTimeout(() => {
+    if (listFormOpen) return;
+    wrap.hidden = true;
+    wrap.inert = false;
+  }, dur(200) + 20);
+}
+function switchList(id) {
+  if (listSwitching || busy.size || animating.size || !lists.some(l => l.id === id)) return;
+  if (searchOpen) closeSearch();
+  closeListMenu(); closeListForm();
+  if (id === activeListId) return;
+  buzz('list');
+  activeListId = id; meta.activeList = id; saveMeta();
+  renderListTabs();
+  const area = $('#taskArea');
+  area.classList.add('swapping');
+  listSwitching = true;
+  setTimeout(() => {
+    render();
+    area.classList.remove('swapping');
+    setTimeout(() => { listSwitching = false; }, dur(180));
+  }, dur(160));
+}
+
+/* =================== welcome =================== */
+function dismissWelcome() {
+  const wrap = $('#welcomeWrap');
+  if (!wrap || wrap.hidden || wrap.classList.contains('off')) return;
+  meta.welcomeDone = true; saveMeta();
+  wrap.classList.add('off');
+  setTimeout(() => { wrap.hidden = true; }, dur(240) + 30);
+}
+function initWelcome() {
+  const wrap = $('#welcomeWrap');
+  if (!wrap) return;
+  if (meta.welcomeDone || tasks.length || auth.everConnected) { wrap.hidden = true; return; }
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || matchMedia('(pointer: coarse)').matches;
+  const install = $('#welcomeInstall');
+  if (standalone) { install.hidden = true; $('#welcomeHome').hidden = true; }
+  else install.textContent = mobile ? 'add to home screen' : 'install app';
+  wrap.hidden = false;
+}
+$('#welcomeClose').addEventListener('click', dismissWelcome);
+$('#welcomeLink').addEventListener('click', () => { dismissWelcome(); connectGoogle(); });
+$('#welcomeInstall').addEventListener('click', () => { dismissWelcome(); $('#installBtn').click(); });
+
+/* =================== boot =================== */
+applySettings();
+if (__DEV) {
+  document.title = 'to:do dev';
+  const title = $('#title');
+  if (title) title.insertAdjacentHTML('beforeend', '<span class="devbadge">dev</span>');
+}
+$('#motto').textContent = MOTTOS[mottoIdx];
+renderListTabs();
+render();
+syncMenuUI();
+$('#buildInfo').textContent = BUILD + ' · local-first';
+initWelcome();
+if (autoLogin()) loadGis().catch(() => {});
+const bootSync = () => {
+  if (!canSync()) return;
+  if (tokenValid()) { sync(); return; }
+  googleState = 'pending'; syncMenuUI();
+  trySilent().then(ok => { if (ok && canSync()) sync(); });
+};
+bootSync();
+if (autoLogin() && tokenValid() && auth.exp - Date.now() < 10 * 60e3) trySilent(true);
+setInterval(() => { if (canSync() && tokenValid()) sync(); }, 60000);
+// keep trying the silent session in the background; only ask for a tap after repeated failures
+if (location.protocol === 'https:' && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+  setInterval(() => {
+    if (!autoLogin() || document.hidden || silentBusy) return;
+    if (!tokenValid() || auth.exp - Date.now() < 15 * 60e3) {
+      trySilent(true).then(ok => {
+        if (ok) {
+          silentFailures = 0; clearTimeout(reconnectTimer);
+          googleState = 'idle'; syncMenuUI();
+          if (canSync()) sync();
+        } else if (!tokenValid()) {
+          silentFailures++;
+          if (silentFailures >= 2 || googleState === 'reconnect') googleState = 'reconnect';
+          else googleState = 'pending';
+          syncMenuUI();
+        }
+      });
+    }
+  }, 30000);
+}
+setInterval(() => { if (!busy.size && !animating.size && !listSwitching && !document.hidden) render(); }, 60000); // refresh "today"/late labels
+setInterval(reminderTick, 20000);
+setTimeout(reminderTick, 1500);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (!busy.size && !animating.size && !listSwitching) render();
+  reminderTick();
+  if (autoLogin()) {
+    if (!tokenValid()) { googleState = 'pending'; syncMenuUI(); trySilent().then(ok => { if (ok && canSync()) sync(); }); return; }
+    if (auth.exp - Date.now() < 15 * 60e3) trySilent(true);
+  }
+  if (!canSync()) return;
+  if (tokenValid()) { if (Date.now() - meta.lastSync >= 60000) sync(); }
+});
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !__DEV) {
+  // if a new worker takes over, reload once so the fresh shell is used
+  if (navigator.serviceWorker.controller && window.top === window) {
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
+  }
+  navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+}
+// deep links (manifest shortcut "add" uses #add)
+if (location.hash === '#add') setTimeout(() => openSheet(), 50);
+else if (location.hash === '#menu') setTimeout(() => openMenu(), 50);
+if (location.hash) try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+
+// test / debugging hook
+window.__todo = {
+  build: BUILD, dev: __DEV, saveTasks, saveLists, saveSettings, saveTomb, saveMeta, applySettings, sync, switchList, toast,
+  get tasks() { return tasks; }, set tasks(v) { tasks = v; }, get tomb() { return tomb; }, get settings() { return settings; },
+  get lists() { return lists; }, get activeListId() { return activeListId; },
+  sanitizeModel, modelChain, callGemini, callOpenRouter, MOTTOS, nextMotto, mergeAiTasks, addTask, deleteTask, toggleDone, render, parseDue, fmtDue, norm,
+  openSheet, closeSheet, openMenu, closeMenu, getToken, syncMenuUI, silentToken, trySilent, refreshQuietly, requestToken, requestCode, exchangeCode, refreshAccessToken, importClientJson, proxyRequest, tokenValid,
+  dueMoment, reminderTick, syncNotifyUI,
+  googleState: () => googleState, setGoogleState: v => { googleState = v; }, auth: () => auth, setAuth: a => { auth = a; },
+  searchOpen: () => searchOpen, openSearch, closeSearch, buzz
+};
+</script>
+</body>
+</html>

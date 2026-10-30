@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<script>
+try {
+  const m = JSON.parse(localStorage.getItem('todo.settings') || '{}').mode === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.mode = m;
+  document.querySelector('meta[name="theme-color"]').content = m === 'light' ? '#ffffff' : '#141414';
+  document.querySelector('meta[name="color-scheme"]').content = m;
+} catch {}
+</script>
+<title>to:do · privacy policy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cpath d='M18 33.5l9 9 19-19' fill='none' stroke='%23f4f4f4' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141414;
+  --fg:#f4f4f4;
+  --mute:#767676;
+  --faint:#424242;
+  --surface:#1f1f1f;
+  color-scheme:dark;
+}
+html[data-mode="light"]{
+  --bg:#fff;
+  --fg:#141414;
+  --mute:#8e8e8e;
+  --faint:#c8c8c8;
+  --surface:#f5f5f5;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0;border:0;outline:0;scrollbar-width:thin;scrollbar-color:#1f1f1f transparent}
+html[data-mode="light"] *{scrollbar-color:#e4e4e4 transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1f1f1f;border-radius:999px}
+html[data-mode="light"] ::-webkit-scrollbar-thumb{background:#e4e4e4}
+html,body{background:var(--bg);color:var(--fg)}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:16px;line-height:1.65;text-transform:lowercase;
+  -webkit-font-smoothing:antialiased;min-height:100dvh;
+}
+main{max-width:640px;margin:0 auto;padding:42px 22px 96px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:36px}
+h1{font-size:2.1em;font-weight:300;letter-spacing:-.03em}
+a.back{color:var(--mute);text-decoration:none;font-size:.9em;padding:6px 12px;border-radius:999px;background:var(--surface)}
+a.back:hover{color:var(--fg)}
+h2{font-size:.78em;color:var(--faint);font-weight:500;letter-spacing:.12em;margin:32px 0 10px}
+p,li{color:var(--mute);margin-bottom:12px}
+strong{color:var(--fg);font-weight:400}
+ul{padding-left:18px;margin-bottom:14px}
+footer{margin-top:48px;color:var(--faint);font-size:.82em}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>privacy policy</h1>
+    <a class="back" href="./">back to to:do</a>
+  </header>
+
+  <p><strong>to:do</strong> is a client-side, local-first task manager. we do not run a backend server, we do not have user accounts on our servers, and we never collect, store, sell, or share your personal data.</p>
+
+  <h2>1. where your data lives</h2>
+  <p>all of your tasks, settings, and authentication tokens are stored exclusively inside your own web browser's <strong>localstorage</strong> on your device. clearing your browser storage or clicking "reset everything" in the menu immediately erases all stored data from your device.</p>
+
+  <h2>2. google calendar &amp; gmail integration</h2>
+  <p>if you choose to click <strong>sign in with google</strong>, the app requests read/write access to google calendar events (<code>calendar.events</code>) and read-only access to gmail messages (<code>gmail.readonly</code>) directly from your browser:</p>
+  <ul>
+    <li><strong>calendar access:</strong> used only to read your upcoming events over the next 7 days so they can be added to your to-do list, and to create calendar events when you add a dated task or explicitly click "add calendar event".</li>
+    <li><strong>email access:</strong> used only to read recent inbox message headers and short snippets from the last 4 days so actionable items can be turned into to-do items.</li>
+    <li><strong>direct connection:</strong> your browser talks directly to google's official apis (<code>googleapis.com</code>). your google tokens and data never pass through any intermediate server owned by us.</li>
+    <li><strong>staying connected:</strong> when <strong>stay signed in</strong> is on, to:do keeps a google refresh token in this browser and uses it to get fresh access tokens directly from google's token endpoint, so your list syncs without a reconnect prompt. to enable this, you can paste your oauth client secret in the advanced menu; it is stored only in this browser and sent only to google's token endpoint. alternatively, you can deploy the optional token proxy in the <code>server/</code> folder; in that case the client secret is stored on your own cloudflare worker instead of in this browser, and only the code and refresh token are sent to that worker. the client secret and refresh token are never included in exports. if google needs you to sign in again, the app waits for your next tap.</li>
+  </ul>
+
+  <h2>3. ai processing</h2>
+  <p>when syncing calendar events and email snippets into tasks, the short event titles and email snippets are sent over encrypted https to openrouter solely to extract a JSON list of actionable to-dos. no explanations or profiles are stored.</p>
+
+  <h2>4. revoking access &amp; deleting data</h2>
+  <p>you can disconnect your google account at any time by opening the top-right menu in <strong>to:do</strong> and clicking <strong>disconnect</strong>, or from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:var(--fg)">google account permissions page</a>. you can delete all local tasks and settings at any time by clicking <strong>reset everything</strong> in the menu.</p>
+
+  <h2>5. google api services user data policy</h2>
+  <p>to:do's use and transfer to any other app of information received from google apis adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style="color:var(--fg)">google api services user data policy</a>, including the limited use requirements.</p>
+
+  <h2>6. notifications</h2>
+  <p>if you allow notifications, to:do uses your browser's notification api to remind you about tasks with due dates. reminders are scheduled and shown locally on your device; no reminder data is sent to us. you can turn reminders off for each task or in the menu, and revoke the browser permission at any time.</p>
+
+  <footer>last updated: october 2026</footer>
+</main>
+</body>
+</html>

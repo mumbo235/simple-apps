@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<script>
+try {
+  const m = JSON.parse(localStorage.getItem('todo.settings') || '{}').mode === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.mode = m;
+  document.querySelector('meta[name="theme-color"]').content = m === 'light' ? '#ffffff' : '#141414';
+  document.querySelector('meta[name="color-scheme"]').content = m;
+} catch {}
+</script>
+<title>to:do · terms of service</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cpath d='M18 33.5l9 9 19-19' fill='none' stroke='%23f4f4f4' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141414;
+  --fg:#f4f4f4;
+  --mute:#767676;
+  --faint:#424242;
+  --surface:#1f1f1f;
+  color-scheme:dark;
+}
+html[data-mode="light"]{
+  --bg:#fff;
+  --fg:#141414;
+  --mute:#8e8e8e;
+  --faint:#c8c8c8;
+  --surface:#f5f5f5;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0;border:0;outline:0;scrollbar-width:thin;scrollbar-color:#1f1f1f transparent}
+html[data-mode="light"] *{scrollbar-color:#e4e4e4 transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1f1f1f;border-radius:999px}
+html[data-mode="light"] ::-webkit-scrollbar-thumb{background:#e4e4e4}
+html,body{background:var(--bg);color:var(--fg)}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:16px;line-height:1.65;text-transform:lowercase;
+  -webkit-font-smoothing:antialiased;min-height:100dvh;
+}
+main{max-width:640px;margin:0 auto;padding:42px 22px 96px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:36px}
+h1{font-size:2.1em;font-weight:300;letter-spacing:-.03em}
+a.back{color:var(--mute);text-decoration:none;font-size:.9em;padding:6px 12px;border-radius:999px;background:var(--surface)}
+a.back:hover{color:var(--fg)}
+h2{font-size:.78em;color:var(--faint);font-weight:500;letter-spacing:.12em;margin:32px 0 10px}
+p,li{color:var(--mute);margin-bottom:12px}
+strong{color:var(--fg);font-weight:400}
+ul{padding-left:18px;margin-bottom:14px}
+footer{margin-top:48px;color:var(--faint);font-size:.82em}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>terms of service</h1>
+    <a class="back" href="./">back to to:do</a>
+  </header>
+
+  <p>these terms cover your use of <strong>to:do</strong>, a browser-based task manager created by <strong>jarvis</strong>. by using the app, you agree to them. if you don't agree, please don't use the app.</p>
+
+  <h2>1. the service</h2>
+  <p>to:do is provided free of charge, as-is, and without any guarantee of availability or fitness for a particular purpose. it is a local-first tool: the app runs in your browser and stores your tasks, settings, and tokens in local storage on your device.</p>
+
+  <h2>2. your google account</h2>
+  <p>if you connect google, you authorize to:do to read calendar events and gmail messages and, when you add a dated task, create calendar events in your primary calendar. you are responsible for the google account you connect and for the permissions you grant. you can revoke access at any time by disconnecting in the menu or from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:var(--fg)">google account permissions page</a>.</p>
+
+  <h2>3. acceptable use</h2>
+  <p>use to:do lawfully and only with accounts and data you are allowed to access. don't use it to spam, disrupt, or abuse the google or openrouter apis, or to attempt to break the app for others.</p>
+
+  <h2>4. third-party services</h2>
+  <p>to:do talks directly to google calendar, gmail, and openrouter. your use of those services is also governed by their own terms and policies, including the <a href="https://developers.google.com/terms" target="_blank" rel="noopener" style="color:var(--fg)">google apis terms of service</a> and <a href="https://openrouter.ai/terms" target="_blank" rel="noopener" style="color:var(--fg)">openrouter's terms</a>. to:do is not affiliated with or endorsed by google or openrouter.</p>
+
+  <h2>5. your data</h2>
+  <p>you keep ownership of your tasks and content. the app does not run a backend or collect your data. because everything is stored in your browser, clearing site data, resetting the app, or losing your device can permanently remove your tasks. export a backup if you need one. see the <a href="privacy.html" style="color:var(--fg)">privacy policy</a> for details.</p>
+
+  <h2>6. no warranty</h2>
+  <p>to:do is provided "as is" and "as available", without warranties of any kind, express or implied, including fitness for a particular purpose and non-infringement. calendar and email sync can miss, delay, or misread items, and browser notifications can be delayed or missed — especially when the app is closed or the browser is not running. don't rely on to:do as your only reminder for something important.</p>
+
+  <h2>7. limitation of liability</h2>
+  <p>to the maximum extent permitted by law, jarvis is not liable for any indirect, incidental, special, consequential, or punitive damages, or for any lost data, missed tasks, missed events, or missed deadlines, arising from your use of to:do.</p>
+
+  <h2>8. changes</h2>
+  <p>these terms may be updated as the app changes. the latest version will always live at this page, and continued use after a change means you accept the updated terms.</p>
+
+  <h2>9. contact</h2>
+  <p>questions or problems? open an issue on the <a href="https://github.com/mumbo235/to-do/issues" target="_blank" rel="noopener" style="color:var(--fg)">github repo</a>.</p>
+
+  <footer>created by jarvis · last updated: october 2026</footer>
+</main>
+</body>
+</html>
