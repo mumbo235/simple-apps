@@ -1,0 +1,11 @@
+name = "todo-token"
+main = "worker.mjs"
+compatibility_date = "2026-10-24"
+
+[vars]
+ALLOWED_ORIGIN = "https://mumbo235.github.io"
+
+# Do not put GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET here.
+# Add them with:
+#   npx wrangler secret put GOOGLE_CLIENT_ID
+#   npx wrangler secret put GOOGLE_CLIENT_SECRET

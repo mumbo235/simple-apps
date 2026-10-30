@@ -87,7 +87,7 @@ footer{margin-top:48px;color:var(--faint);font-size:.82em}
   </ul>
   <p>after signing in, the <strong>link calendar</strong> and <strong>link email</strong> toggles unlock. turn on the sources you want; both are on by default. <strong>stay signed in</strong> keeps the session alive between opens, and <strong>auto sync</strong> refreshes your list on load and every minute.</p>
   <p><strong>automatic reconnect:</strong> open the menu → <strong>advanced</strong>, paste the <strong>oauth client secret</strong> from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color:var(--fg)">google cloud credentials</a> (or import the client json), then tap <strong>enable automatic reconnect</strong> and approve offline access once. to:do stores a refresh token on this device and renews without a popup. the secret stays on this device and is never exported.</p>
-  <p>if you would rather keep the client secret off this device, deploy the free <a href="https://github.com/mumbo235/to-do/tree/main/server" target="_blank" rel="noopener" style="color:var(--fg)"><strong>token proxy</strong></a> to cloudflare workers, paste its url under advanced → <strong>token proxy url</strong>, and leave the client secret empty. the proxy holds the secret and exchanges codes/refreshes; the app still renews automatically.</p>
+  <p>if you would rather keep the client secret off this device, deploy the free <a href="https://github.com/mumbo235/simple-apps/tree/main/to-do/server" target="_blank" rel="noopener" style="color:var(--fg)"><strong>token proxy</strong></a> to cloudflare workers, paste its url under advanced → <strong>token proxy url</strong>, and leave the client secret empty. the proxy holds the secret and exchanges codes/refreshes; the app still renews automatically.</p>
   <p>if google still asks you to reconnect after about a week, set the oauth consent screen to <strong>in production</strong>; apps left in testing mode expire refresh tokens after 7 days. without a client secret, to:do keeps retrying the best-effort silent session and, after a few failures, asks you to reconnect from the menu.</p>
   <p>to revoke access, open the menu → sync → <strong>disconnect</strong>, or use your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:var(--fg)">google account permissions</a>.</p>
 
@@ -124,7 +124,7 @@ footer{margin-top:48px;color:var(--faint);font-size:.82em}
   </ul>
 
   <h2 id="links">9. links</h2>
-  <p><a href="./" style="color:var(--fg)">open to:do</a> · <a href="about.html" style="color:var(--fg)">about</a> · <a href="terms.html" style="color:var(--fg)">terms</a> · <a href="privacy.html" style="color:var(--fg)">privacy</a> · <a href="https://github.com/mumbo235/to-do" target="_blank" rel="noopener" style="color:var(--fg)">source</a> · <a href="https://github.com/mumbo235/to-do/issues" target="_blank" rel="noopener" style="color:var(--fg)">report an issue</a></p>
+  <p><a href="./" style="color:var(--fg)">open to:do</a> · <a href="about.html" style="color:var(--fg)">about</a> · <a href="terms.html" style="color:var(--fg)">terms</a> · <a href="privacy.html" style="color:var(--fg)">privacy</a> · <a href="https://github.com/mumbo235/simple-apps/tree/main/to-do" target="_blank" rel="noopener" style="color:var(--fg)">source</a> · <a href="https://github.com/mumbo235/simple-apps/issues" target="_blank" rel="noopener" style="color:var(--fg)">report an issue</a></p>
 
   <footer>last updated: october 2026</footer>
 </main>
