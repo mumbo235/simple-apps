@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>simple apps</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141414'/%3E%3Ccircle cx='22' cy='22' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='42' cy='22' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='22' cy='42' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='42' cy='42' r='5' fill='%23f4f4f4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+body{font-family:'Space Grotesk',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{padding-bottom:64px}
+header{max-width:560px}
+h1{font-size:2.6em}
+.motto{margin-top:8px}
+.sub{margin-top:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:32px}
+.app{display:flex;align-items:flex-start;gap:13px;padding:17px;background:var(--surface);border-radius:17px;transition:background .2s ease,transform .2s var(--ease)}
+.app:hover{background:var(--surface2);transform:translateY(-2px)}
+.app:active{transform:translateY(0)}
+.app img{flex:none;width:42px;height:42px;border-radius:11px;background:var(--bg)}
+.app-text{min-width:0}
+.app-name{font-size:1em;color:var(--fg);text-transform:none}
+.app-desc{color:var(--faint);font-size:.72em;line-height:1.45;margin-top:4px;text-transform:none}
+.foot{margin-top:42px;color:var(--faint);font-size:.68em;line-height:1.6}
+@media (max-width:560px){
+  .grid{grid-template-columns:1fr}
+  h1{font-size:2.3em}
+  .app{padding:15px}
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div id="brand">
+      <h1>simple apps</h1>
+      <div class="motto">small tools, kept simple.</div>
+      <div class="sub">six quiet, local-first apps.</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <a class="app" href="./notes/">
+      <img src="./notes/icon-192.png" alt="" width="42" height="42">
+      <div class="app-text"><div class="app-name">notes</div><div class="app-desc">notebooks, search, pinning, and a forgiving trash.</div></div>
+    </a>
+    <a class="app" href="./focus/">
+      <img src="./focus/icon-192.png" alt="" width="42" height="42">
+      <div class="app-text"><div class="app-name">focus</div><div class="app-desc">a timer that gets out of the way.</div></div>
+    </a>
+    <a class="app" href="./habits/">
+      <img src="./habits/icon-192.png" alt="" width="42" height="42">
+      <div class="app-text"><div class="app-name">habits</div><div class="app-desc">small check-ins, quiet streaks, no guilt.</div></div>
+    </a>
+    <a class="app" href="./spend/">
+      <img src="./spend/icon-192.png" alt="" width="42" height="42">
+      <div class="app-text"><div class="app-name">spend</div><div class="app-desc">a private spending log with a monthly budget.</div></div>
+    </a>
+    <a class="app" href="./calc/">
+      <img src="./calc/icon-192.png" alt="" width="42" height="42">
+      <div class="app-text"><div class="app-name">calc</div><div class="app-desc">parentheses, percent, history, and your keyboard.</div></div>
+    </a>
+    <a class="app" href="./weather/">
+      <img src="./weather/icon-192.png" alt="" width="42" height="42">
+      <div class="app-text"><div class="app-name">weather</div><div class="app-desc">current, hourly, and seven days without the noise.</div></div>
+    </a>
+  </div>
+
+  <div class="foot">each app keeps its data in this browser and installs on its own.</div>
+</main>
+</body>
+</html>

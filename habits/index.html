@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script>
+try {
+  const st = JSON.parse(localStorage.getItem('habits.settings') || '{}');
+  const m = st.mode === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.mode = m;
+  document.querySelector('meta[name="theme-color"]').content = m === 'light' ? '#ffffff' : '#141414';
+  document.querySelector('meta[name="color-scheme"]').content = m;
+  document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = m === 'light' ? 'default' : 'black';
+} catch {}
+</script>
+<script>
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__installPrompt = e; });
+</script>
+<meta name="apple-mobile-web-app-title" content="habits">
+<title>habits</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141414'/%3E%3Ccircle cx='20' cy='20' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='32' cy='20' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='44' cy='20' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='20' cy='32' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='44' cy='32' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='20' cy='44' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='32' cy='44' r='5' fill='%23f4f4f4'/%3E%3Ccircle cx='44' cy='44' r='5' fill='%23f4f4f4'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fontLink" rel="stylesheet" href="">
+<link rel="stylesheet" href="base.css">
+<style>
+.today-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 8px;color:var(--faint);font-size:.7em;letter-spacing:.06em}
+.habits{display:flex;flex-direction:column;gap:1px;margin-top:8px}
+.habit{display:flex;align-items:flex-start;gap:12px;padding:13px 10px;margin:0 -10px;border-radius:14px;transition:background calc(var(--spd)*180ms)}
+.habit:hover{background:var(--surface)}
+.habit-check{flex:none;width:34px;height:34px;margin-top:2px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;color:var(--bg);transition:background calc(var(--spd)*220ms),transform calc(var(--spd)*180ms)}
+.habit-check:active{transform:scale(.9)}
+.habit-check svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.6);transition:opacity calc(var(--spd)*160ms),transform calc(var(--spd)*220ms)}
+.habit.done .habit-check{background:var(--fg)}
+.habit.done .habit-check svg{opacity:1;transform:none}
+.habit-main{flex:1;min-width:0;cursor:pointer}
+.habit-name{font-size:.98em;line-height:1.35;color:var(--fg);text-transform:none;word-break:break-word}
+.habit.done .habit-name{color:var(--mute)}
+.habit-meta{font-size:.68em;color:var(--faint);margin-top:3px;display:flex;gap:9px;flex-wrap:wrap;letter-spacing:.02em}
+.habit-meta .streak{color:var(--mute)}
+.dots{display:flex;gap:4px;margin-top:7px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--surface3);transition:background calc(var(--spd)*200ms)}
+.dot.on{background:var(--fg)}
+.dot.today{box-shadow:0 0 0 1px var(--fg)}
+.habit-more{flex:none;width:28px;height:28px;margin-top:4px;border-radius:50%;display:grid;place-items:center;color:var(--faint);font-size:18px;transition:background .18s,color .18s}
+.habit-more:hover{background:var(--surface2);color:var(--fg)}
+.sheet .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.sheet .top h2{margin:0}
+.sheet .top .iconbtn{width:34px;height:34px;margin-right:-7px}
+.sheet.tall{max-height:calc(100dvh - 34px);overflow-y:auto}
+.detail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:12px 0 16px}
+.detail-stat{background:var(--surface2);border-radius:9px;padding:8px 6px;text-align:center}
+.detail-stat b{display:block;font-size:1.15em;font-weight:400;line-height:1.2;font-variant-numeric:tabular-nums}
+.detail-stat span{display:block;color:var(--faint);font-size:.6em;letter-spacing:.05em;margin-top:2px}
+.calhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 8px}
+.calhead .lbl{font-size:.78em;color:var(--mute)}
+.calhead button{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--mute)}
+.calhead button:hover:not(:disabled){background:var(--surface2);color:var(--fg)}
+.calhead button:disabled{opacity:.25;pointer-events:none}
+.calhead svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.calweek,.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.calweek{margin-bottom:4px}
+.calweek span{text-align:center;color:var(--faint);font-size:.6em;padding:2px 0}
+.calempty{height:32px}
+.calday{height:32px;border-radius:8px;background:var(--surface2);color:var(--mute);font-size:.7em;font-variant-numeric:tabular-nums;transition:background .16s,color .16s}
+.calday:hover:not(:disabled){background:var(--surface3);color:var(--fg)}
+.calday.on{background:var(--fg);color:var(--bg)}
+.calday.today:not(.on){box-shadow:inset 0 0 0 1px var(--fg);color:var(--fg)}
+.calday:disabled{opacity:.22;pointer-events:none}
+.detail-note{color:var(--faint);font-size:.68em;margin-top:10px;line-height:1.5}
+.detail-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.detail-actions .chip{height:32px;font-size:.72em}
+body.sheet-open #fab{opacity:0;pointer-events:none}
+.sheet input{text-transform:none}
+@media (max-width:520px){
+  .habit{padding:12px 8px;margin-left:-8px;margin-right:-8px}
+  .dots{gap:3px}
+  .dot{width:5px;height:5px}
+}
+</style>
+</head>
+<body>
+<main id="appMain">
+  <header>
+    <div id="brand">
+      <h1 id="title">habits</h1>
+      <div class="motto" id="motto" role="button" tabindex="0" aria-label="encouragement, tap for another">small steps</div>
+      <div class="sub" id="sub">today</div>
+    </div>
+    <div class="hactions">
+      <button class="iconbtn" id="menuBtn" aria-label="menu" aria-expanded="false" aria-controls="menu"><svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16"/></svg></button>
+    </div>
+  </header>
+
+  <div class="today-head"><span id="todayDate"></span><span id="todayCount"></span></div>
+  <div class="habits" id="habitList" aria-label="today's habits"></div>
+  <div class="empty" id="empty" hidden><p>no habits yet. start with one small thing.</p><button class="chip" id="emptyNew" type="button">add a habit</button></div>
+</main>
+
+<button id="fab" aria-label="new habit" aria-controls="habitSheet"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+<div class="scrim" id="scrim"></div>
+
+<aside id="menu" aria-label="settings" aria-hidden="true" inert>
+  <div class="top"><h2>menu</h2><button type="button" class="iconbtn" id="menuClose" aria-label="close menu" style="margin-right:-10px"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <h3>appearance</h3>
+  <div class="card">
+    <div class="field"><div class="lbl">mode</div><div class="seg" data-seg="mode"><button data-v="light">light</button><button data-v="dark">dark</button></div></div>
+    <div class="field"><div class="lbl">font</div><div class="seg" data-seg="font"><button data-v="inter">inter</button><button data-v="manrope">manrope</button><button data-v="grotesk">grotesk</button><button data-v="mono">mono</button><button data-v="system">system</button></div></div>
+    <div class="field"><div class="lbl">text size</div><div class="seg" data-seg="size"><button data-v="s">small</button><button data-v="m">medium</button><button data-v="l">large</button></div></div>
+    <div class="field"><div class="lbl">density</div><div class="seg" data-seg="density"><button data-v="compact">compact</button><button data-v="comfy">comfy</button><button data-v="airy">airy</button></div></div>
+    <div class="field"><div class="lbl">animation</div><div class="seg" data-seg="speed" data-num><button data-v="1.6">slow</button><button data-v="1">normal</button><button data-v="0.6">fast</button></div></div>
+    <button type="button" class="tog" role="switch" data-toggle="reduceMotion"><span>reduce motion</span><span class="sw"></span></button>
+  </div>
+  <h3>data</h3>
+  <div class="card">
+    <button type="button" class="linkbtn" id="installBtn">install habits</button>
+    <button type="button" class="linkbtn" id="exportBtn">export habits</button>
+    <button type="button" class="linkbtn" id="importBtn">import habits</button>
+    <button type="button" class="linkbtn" id="resetBtn">reset everything</button>
+    <div class="hint">habits stay in this browser. export a backup before clearing site data.</div>
+  </div>
+  <h3>info</h3>
+  <div class="card">
+    <div class="status"><span class="st" id="buildInfo">habits v1.0</span></div>
+    <div class="hint">a quiet habit grid. missing a day is information, not a punishment.</div>
+  </div>
+</aside>
+
+<section class="sheet" id="habitSheet" role="dialog" aria-modal="true" aria-label="habit" aria-hidden="true" inert>
+  <h2 id="habitSheetTitle">new habit</h2>
+  <form id="habitForm">
+    <div class="field"><label for="habitName">name</label><input id="habitName" type="text" maxlength="60" placeholder="read 10 pages" autocomplete="off"></div>
+    <div class="actions"><button type="button" class="chip" id="habitCancel">cancel</button><button type="submit" class="chip solid" id="habitSave">add</button></div>
+  </form>
+</section>
+
+<section class="sheet tall" id="detailSheet" role="dialog" aria-modal="true" aria-label="habit details" aria-hidden="true" inert>
+  <div class="top"><h2 id="detailTitle">habit</h2><button type="button" class="iconbtn" id="detailClose" aria-label="close details"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="detail-stats">
+    <div class="detail-stat"><b id="detailStreak">0</b><span>streak</span></div>
+    <div class="detail-stat"><b id="detailBest">0</b><span>best</span></div>
+    <div class="detail-stat"><b id="detailTotal">0</b><span>check-ins</span></div>
+  </div>
+  <div class="calhead">
+    <button type="button" id="calPrev" aria-label="previous month"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <span class="lbl" id="calLabel"></span>
+    <button type="button" id="calNext" aria-label="next month"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
+  <div class="calweek" aria-hidden="true"><span>s</span><span>m</span><span>t</span><span>w</span><span>t</span><span>f</span><span>s</span></div>
+  <div class="calgrid" id="calendar"></div>
+  <div class="detail-note">tap any past day to fill it in. today is outlined.</div>
+  <div class="detail-actions">
+    <button type="button" class="chip" id="detailEdit">rename</button>
+    <button type="button" class="chip danger" id="detailDelete">delete</button>
+  </div>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+window.APP_CONFIG = {
+  ns: 'habits', title: 'habits', build: 'v1.0',
+  mottos: ['small steps', 'show up', 'one day at a time', 'keep the chain', 'a little counts', 'come back tomorrow', 'progress, not perfect']
+};
+</script>
+<script src="base.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+const todayKey = () => App.dayKey(new Date());
+const today = () => App.parseDay(todayKey());
+let habits = App.store.get('habits', []);
+if (!Array.isArray(habits)) habits = [];
+habits = habits.filter(h => h && typeof h.name === 'string' && h.name.trim()).map(h => ({
+  id: typeof h.id === 'string' ? h.id : App.uid(),
+  name: h.name.trim().slice(0, 60),
+  createdAt: +h.createdAt || Date.now()
+}));
+let entries = App.store.get('entries', {});
+if (!entries || typeof entries !== 'object') entries = {};
+const ids = new Set(habits.map(h => h.id));
+Object.keys(entries).forEach(id => {
+  if (!ids.has(id)) { delete entries[id]; return; }
+  entries[id] = [...new Set((Array.isArray(entries[id]) ? entries[id] : []).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)))].sort();
+});
+let editingHabitId = null;
+let detailId = null;
+let detailMonth = new Date(today().getFullYear(), today().getMonth(), 1);
+const saveHabits = () => App.store.set('habits', habits);
+const saveEntries = () => App.store.set('entries', entries);
+
+function dateLabel(d) {
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase();
+}
+function monthLabel(d) { return MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+function setOf(id) { return new Set(Array.isArray(entries[id]) ? entries[id] : []); }
+function done(id, key = todayKey()) { return setOf(id).has(key); }
+function currentStreak(id) {
+  const set = setOf(id);
+  let d = today();
+  if (!set.has(App.dayKey(d))) d = App.addDays(d, -1);
+  let n = 0;
+  while (set.has(App.dayKey(d))) { n++; d = App.addDays(d, -1); }
+  return n;
+}
+function bestStreak(id) {
+  const days = [...setOf(id)].sort();
+  let best = 0, run = 0, prev = null;
+  days.forEach(k => {
+    const d = App.parseDay(k);
+    if (prev && Math.round((d - prev) / 864e5) === 1) run++;
+    else run = 1;
+    best = Math.max(best, run);
+    prev = d;
+  });
+  return best;
+}
+function totalDone(id) { return setOf(id).size; }
+
+function toggleDay(id, key) {
+  if (key > todayKey()) return;
+  const set = setOf(id);
+  if (set.has(key)) set.delete(key); else set.add(key);
+  entries[id] = [...set].sort();
+  saveEntries();
+  render();
+}
+function rowEl(h) {
+  const id = h.id;
+  const isDone = done(id);
+  const row = document.createElement('div');
+  row.className = 'habit' + (isDone ? ' done' : '');
+  row.dataset.id = id;
+  const check = document.createElement('button');
+  check.type = 'button'; check.className = 'habit-check'; check.dataset.check = id;
+  check.setAttribute('aria-label', isDone ? 'mark not done' : 'mark done');
+  check.setAttribute('aria-pressed', String(isDone));
+  check.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const main = document.createElement('div'); main.className = 'habit-main'; main.dataset.open = id;
+  main.setAttribute('role', 'button'); main.tabIndex = 0; main.setAttribute('aria-label', 'open details for ' + h.name);
+  const name = document.createElement('div'); name.className = 'habit-name'; name.textContent = h.name;
+  const meta = document.createElement('div'); meta.className = 'habit-meta';
+  const streak = currentStreak(id);
+  const s = document.createElement('span'); s.className = 'streak';
+  s.textContent = streak ? streak + ' day' + (streak === 1 ? '' : 's') : 'start today';
+  meta.appendChild(s);
+  if (totalDone(id)) { const t = document.createElement('span'); t.textContent = totalDone(id) + ' total'; meta.appendChild(t); }
+  main.append(name, meta);
+  const dots = document.createElement('div'); dots.className = 'dots';
+  for (let i = 13; i >= 0; i--) {
+    const d = App.addDays(today(), -i);
+    const key = App.dayKey(d);
+    const dot = document.createElement('span');
+    dot.className = 'dot' + (setOf(id).has(key) ? ' on' : '') + (key === todayKey() ? ' today' : '');
+    dot.title = dateLabel(d);
+    dots.appendChild(dot);
+  }
+  main.appendChild(dots);
+  row.append(check, main);
+  check.addEventListener('click', e => { e.stopPropagation(); toggleDay(id, todayKey()); });
+  main.addEventListener('click', () => openDetail(id));
+  main.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(id); }
+  });
+  return row;
+}
+function render() {
+  const box = $('#habitList');
+  box.replaceChildren(...habits.map(rowEl));
+  const doneCount = habits.filter(h => done(h.id)).length;
+  $('#todayDate').textContent = dateLabel(today());
+  $('#todayCount').textContent = habits.length ? doneCount + ' of ' + habits.length : '';
+  $('#sub').textContent = habits.length ? doneCount + ' of ' + habits.length + ' done' : 'today';
+  $('#empty').hidden = habits.length > 0;
+  if (detailId) renderDetail();
+}
+function openHabitSheet(id = null) {
+  App.closeMenu();
+  closeDetail();
+  editingHabitId = id;
+  const h = id ? habits.find(x => x.id === id) : null;
+  $('#habitSheetTitle').textContent = h ? 'edit habit' : 'new habit';
+  $('#habitName').value = h ? h.name : '';
+  $('#habitSave').textContent = h ? 'save' : 'add';
+  document.body.classList.add('sheet-open');
+  $('#scrim').classList.add('show');
+  $('#habitSheet').classList.add('show');
+  $('#habitSheet').setAttribute('aria-hidden', 'false');
+  $('#habitSheet').inert = false;
+  $('#appMain').inert = true;
+  setTimeout(() => $('#habitName').focus({ preventScroll: true }), 60);
+}
+function closeHabitSheet() {
+  const sh = $('#habitSheet');
+  sh.classList.remove('show');
+  sh.setAttribute('aria-hidden', 'true');
+  sh.inert = true;
+  document.body.classList.remove('sheet-open');
+  $('#appMain').inert = false;
+  if (!$('#menu').classList.contains('show')) $('#scrim').classList.remove('show');
+  editingHabitId = null;
+}
+function openDetail(id) {
+  App.closeMenu();
+  closeHabitSheet();
+  detailId = id;
+  detailMonth = new Date(today().getFullYear(), today().getMonth(), 1);
+  document.body.classList.add('sheet-open');
+  $('#scrim').classList.add('show');
+  $('#detailSheet').classList.add('show');
+  $('#detailSheet').setAttribute('aria-hidden', 'false');
+  $('#detailSheet').inert = false;
+  $('#appMain').inert = true;
+  renderDetail();
+}
+function closeDetail() {
+  const sh = $('#detailSheet');
+  sh.classList.remove('show');
+  sh.setAttribute('aria-hidden', 'true');
+  sh.inert = true;
+  document.body.classList.remove('sheet-open');
+  $('#appMain').inert = false;
+  if (!$('#menu').classList.contains('show')) $('#scrim').classList.remove('show');
+  detailId = null;
+}
+function renderDetail() {
+  const h = habits.find(x => x.id === detailId);
+  if (!h) { closeDetail(); return; }
+  $('#detailTitle').textContent = h.name;
+  $('#detailStreak').textContent = currentStreak(h.id);
+  $('#detailBest').textContent = bestStreak(h.id);
+  $('#detailTotal').textContent = totalDone(h.id);
+  $('#calLabel').textContent = monthLabel(detailMonth);
+  $('#calNext').disabled = App.monthKey(detailMonth) >= App.monthKey(today());
+  const first = new Date(detailMonth.getFullYear(), detailMonth.getMonth(), 1);
+  const days = new Date(detailMonth.getFullYear(), detailMonth.getMonth() + 1, 0).getDate();
+  const grid = $('#calendar');
+  grid.replaceChildren();
+  for (let i = 0; i < first.getDay(); i++) {
+    const blank = document.createElement('span'); blank.className = 'calempty'; grid.appendChild(blank);
+  }
+  const tKey = todayKey();
+  const set = setOf(h.id);
+  for (let day = 1; day <= days; day++) {
+    const d = new Date(detailMonth.getFullYear(), detailMonth.getMonth(), day);
+    const key = App.dayKey(d);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'calday' + (set.has(key) ? ' on' : '') + (key === tKey ? ' today' : '');
+    b.textContent = day;
+    b.disabled = key > tKey;
+    b.setAttribute('aria-label', dateLabel(d) + (set.has(key) ? ', done' : ''));
+    b.addEventListener('click', () => { toggleDay(h.id, key); });
+    grid.appendChild(b);
+  }
+}
+function saveHabit() {
+  const name = $('#habitName').value.trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (!name) { $('#habitName').focus(); App.toast('name your habit'); return; }
+  if (habits.some(h => h.id !== editingHabitId && h.name.toLowerCase() === name.toLowerCase())) {
+    App.toast('that habit already exists'); $('#habitName').focus(); return;
+  }
+  if (editingHabitId) {
+    const h = habits.find(x => x.id === editingHabitId);
+    if (h) h.name = name;
+    saveHabits(); closeHabitSheet(); if (detailId) renderDetail(); render();
+  } else {
+    const h = { id: App.uid(), name, createdAt: Date.now() };
+    habits.push(h); saveHabits(); closeHabitSheet(); render();
+    App.toast('habit added');
+  }
+}
+function deleteHabit(id) {
+  const h = habits.find(x => x.id === id);
+  if (!h) return;
+  if (!confirm('delete "' + h.name + '" and its history?')) return;
+  habits = habits.filter(x => x.id !== id);
+  delete entries[id];
+  saveHabits(); saveEntries();
+  if (detailId === id) closeDetail();
+  closeHabitSheet(); render(); App.toast('habit deleted');
+}
+
+$('#habitForm').addEventListener('submit', e => { e.preventDefault(); saveHabit(); });
+$('#habitCancel').addEventListener('click', closeHabitSheet);
+$('#fab').addEventListener('click', () => openHabitSheet());
+$('#emptyNew').addEventListener('click', () => openHabitSheet());
+$('#detailClose').addEventListener('click', closeDetail);
+$('#detailEdit').addEventListener('click', () => {
+  const id = detailId;
+  if (!id) return;
+  closeDetail();
+  openHabitSheet(id);
+});
+$('#detailDelete').addEventListener('click', () => { if (detailId) deleteHabit(detailId); });
+$('#calPrev').addEventListener('click', () => { detailMonth = new Date(detailMonth.getFullYear(), detailMonth.getMonth() - 1, 1); renderDetail(); });
+$('#calNext').addEventListener('click', () => {
+  const next = new Date(detailMonth.getFullYear(), detailMonth.getMonth() + 1, 1);
+  if (App.monthKey(next) <= App.monthKey(today())) { detailMonth = next; renderDetail(); }
+});
+$('#scrim').addEventListener('click', () => {
+  if ($('#detailSheet').classList.contains('show')) closeDetail();
+  else if ($('#habitSheet').classList.contains('show')) closeHabitSheet();
+});
+document.addEventListener('app:menuopen', () => { closeHabitSheet(); closeDetail(); });
+
+$('#exportBtn').addEventListener('click', () => {
+  App.download('habits-export.json', JSON.stringify({ app: 'habits', v: 1, habits, entries }, null, 2));
+  App.toast('habits exported');
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!d || !Array.isArray(d.habits)) throw 0;
+      if (!confirm('replace all habits in this browser with this backup?')) return;
+      habits = d.habits.filter(h => h && typeof h.name === 'string').map(h => ({
+        id: typeof h.id === 'string' ? h.id : App.uid(),
+        name: h.name.trim().slice(0, 60),
+        createdAt: +h.createdAt || Date.now()
+      }));
+      entries = {};
+      const valid = new Set(habits.map(h => h.id));
+      Object.entries(d.entries && typeof d.entries === 'object' ? d.entries : {}).forEach(([id, days]) => {
+        if (!valid.has(id) || !Array.isArray(days)) return;
+        entries[id] = [...new Set(days.filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)))].sort();
+      });
+      saveHabits(); saveEntries(); closeDetail(); render(); App.toast('imported ' + habits.length + ' habits');
+    } catch { App.toast('could not import that file'); }
+  };
+  r.readAsText(f);
+});
+$('#resetBtn').addEventListener('click', () => {
+  if (!confirm('delete all habits and history from this browser?')) return;
+  Object.keys(localStorage).filter(k => k.startsWith('habits.')).forEach(k => localStorage.removeItem(k));
+  location.reload();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if ($('#detailSheet').classList.contains('show')) { closeDetail(); return; }
+    if ($('#habitSheet').classList.contains('show')) { closeHabitSheet(); return; }
+    return;
+  }
+  const typing = /^(input|textarea|select)$/i.test(document.activeElement && document.activeElement.tagName || '');
+  if (!typing && e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    if (!$('#detailSheet').classList.contains('show') && !$('#habitSheet').classList.contains('show')) openHabitSheet();
+  }
+});
+if (location.hash === '#new') {
+  setTimeout(() => openHabitSheet(), 120);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+}
+render();
+window.__habits = { get habits() { return habits; }, get entries() { return entries; }, toggleDay, currentStreak, bestStreak, render };
+</script>
+</body>
+</html>

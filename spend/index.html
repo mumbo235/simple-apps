@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script>
+try {
+  const st = JSON.parse(localStorage.getItem('spend.settings') || '{}');
+  const m = st.mode === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.mode = m;
+  document.querySelector('meta[name="theme-color"]').content = m === 'light' ? '#ffffff' : '#141414';
+  document.querySelector('meta[name="color-scheme"]').content = m;
+  document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = m === 'light' ? 'default' : 'black';
+} catch {}
+</script>
+<script>
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__installPrompt = e; });
+</script>
+<meta name="apple-mobile-web-app-title" content="spend">
+<title>spend</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141414'/%3E%3Ccircle cx='32' cy='32' r='21' fill='%23f4f4f4'/%3E%3Cpath d='M32 15v34M20 27h24M20 37h24' stroke='%23141414' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fontLink" rel="stylesheet" href="">
+<link rel="stylesheet" href="base.css">
+<style>
+.summary{background:var(--surface);border-radius:18px;padding:15px 17px;margin:6px 0 24px}
+.month-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--mute);font-size:.74em}
+.month-nav button{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--mute)}
+.month-nav button:hover:not(:disabled){background:var(--surface2);color:var(--fg)}
+.month-nav button:disabled{opacity:.25;pointer-events:none}
+.month-nav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.total{font-size:2.75em;font-weight:300;letter-spacing:-.06em;line-height:1.05;margin-top:12px;font-variant-numeric:tabular-nums}
+.summary-meta{font-size:.7em;color:var(--faint);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap}
+.summary-meta .today{color:var(--mute)}
+.budget{margin-top:14px}
+.budget-line{display:flex;justify-content:space-between;gap:8px;font-size:.68em;color:var(--faint)}
+.budget-line .over{color:var(--fg)}
+.bar{height:5px;background:var(--surface3);border-radius:999px;overflow:hidden;margin-top:7px}
+.bar span{display:block;height:100%;background:var(--fg);border-radius:999px;transition:width calc(var(--spd)*400ms) var(--ease)}
+.groups{display:flex;flex-direction:column;gap:18px}
+.daygroup{display:flex;flex-direction:column;gap:1px}
+.dayhead{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--faint);font-size:.68em;letter-spacing:.04em;padding:0 8px 3px}
+.dayhead .sum{color:var(--mute);font-variant-numeric:tabular-nums}
+.expense{display:flex;align-items:center;gap:10px;padding:10px 8px;margin:0 -8px;border-radius:10px;cursor:pointer;transition:background calc(var(--spd)*180ms)}
+.expense:hover{background:var(--surface)}
+.expense:active{background:var(--surface2)}
+.expense-main{flex:1;min-width:0}
+.expense-title{font-size:.92em;color:var(--fg);text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.expense-meta{font-size:.67em;color:var(--faint);margin-top:2px;display:flex;gap:7px}
+.expense-amount{flex:none;color:var(--fg);font-size:.92em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.empty-month{color:var(--faint);font-size:.9em;padding:12px 0 20px;line-height:1.6}
+.amount-row{display:flex;align-items:baseline;gap:6px;background:var(--surface2);border-radius:12px;padding:11px 13px}
+.amount-row .sym{font-size:1.3em;color:var(--mute);font-variant-numeric:tabular-nums}
+#amountInput{flex:1;min-width:0;background:none;font-size:2em;font-weight:300;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--fg);padding:0}
+#amountInput::placeholder{color:var(--faint)}
+.cats{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.cats button{height:30px;padding:0 10px;border-radius:999px;background:var(--surface2);color:var(--mute);font-size:.72em;transition:background .16s,color .16s}
+.cats button:hover{color:var(--fg)}
+.cats button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.field select{color:var(--fg)}
+body.sheet-open #fab{opacity:0;pointer-events:none}
+@media (max-width:520px){
+  .total{font-size:2.45em}
+  .summary{padding:14px 15px}
+  .expense{padding:9px 7px;margin-left:-7px;margin-right:-7px}
+}
+</style>
+</head>
+<body>
+<main id="appMain">
+  <header>
+    <div id="brand">
+      <h1 id="title">spend</h1>
+      <div class="motto" id="motto" role="button" tabindex="0" aria-label="encouragement, tap for another">know where it goes</div>
+      <div class="sub" id="sub">october · 0 entries</div>
+    </div>
+    <div class="hactions">
+      <button class="iconbtn" id="menuBtn" aria-label="menu" aria-expanded="false" aria-controls="menu"><svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16"/></svg></button>
+    </div>
+  </header>
+
+  <section class="summary" aria-label="month summary">
+    <div class="month-nav">
+      <button type="button" id="prevMonth" aria-label="previous month"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span id="monthLabel"></span>
+      <button type="button" id="nextMonth" aria-label="next month"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <div class="total" id="monthTotal">$0.00</div>
+    <div class="summary-meta" id="summaryMeta"></div>
+    <div class="budget" id="budgetWrap" hidden>
+      <div class="budget-line"><span id="budgetLeft"></span><span id="budgetSpent"></span></div>
+      <div class="bar"><span id="budgetFill" style="width:0%"></span></div>
+    </div>
+  </section>
+
+  <div class="groups" id="groups"></div>
+  <div class="empty-month" id="empty" hidden>nothing spent this month.<br>tap + when you spend something.</div>
+</main>
+
+<button id="fab" aria-label="new expense" aria-controls="expenseSheet"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+<div class="scrim" id="scrim"></div>
+
+<aside id="menu" aria-label="settings" aria-hidden="true" inert>
+  <div class="top"><h2>menu</h2><button type="button" class="iconbtn" id="menuClose" aria-label="close menu" style="margin-right:-10px"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <h3>appearance</h3>
+  <div class="card">
+    <div class="field"><div class="lbl">mode</div><div class="seg" data-seg="mode"><button data-v="light">light</button><button data-v="dark">dark</button></div></div>
+    <div class="field"><div class="lbl">font</div><div class="seg" data-seg="font"><button data-v="inter">inter</button><button data-v="manrope">manrope</button><button data-v="grotesk">grotesk</button><button data-v="mono">mono</button><button data-v="system">system</button></div></div>
+    <div class="field"><div class="lbl">text size</div><div class="seg" data-seg="size"><button data-v="s">small</button><button data-v="m">medium</button><button data-v="l">large</button></div></div>
+    <div class="field"><div class="lbl">density</div><div class="seg" data-seg="density"><button data-v="compact">compact</button><button data-v="comfy">comfy</button><button data-v="airy">airy</button></div></div>
+    <div class="field"><div class="lbl">animation</div><div class="seg" data-seg="speed" data-num><button data-v="1.6">slow</button><button data-v="1">normal</button><button data-v="0.6">fast</button></div></div>
+    <button type="button" class="tog" role="switch" data-toggle="reduceMotion"><span>reduce motion</span><span class="sw"></span></button>
+  </div>
+  <h3>money</h3>
+  <div class="card">
+    <div class="field"><label for="currencySelect">currency</label><select id="currencySelect"><option value="USD">USD · us dollar</option><option value="EUR">EUR · euro</option><option value="GBP">GBP · pound</option><option value="CAD">CAD · canadian dollar</option><option value="AUD">AUD · australian dollar</option><option value="JPY">JPY · yen</option><option value="INR">INR · rupee</option></select><div class="hint">display only — amounts are not converted.</div></div>
+    <div class="field"><label for="budgetInput">monthly budget</label><input id="budgetInput" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0 = off"><div class="hint">optional. shown against each month.</div></div>
+  </div>
+  <h3>data</h3>
+  <div class="card">
+    <button type="button" class="linkbtn" id="installBtn">install spend</button>
+    <button type="button" class="linkbtn" id="exportBtn">export JSON</button>
+    <button type="button" class="linkbtn" id="csvBtn">export CSV</button>
+    <button type="button" class="linkbtn" id="importBtn">import JSON</button>
+    <button type="button" class="linkbtn" id="resetBtn">reset everything</button>
+    <div class="hint">expenses stay in this browser. export a backup before clearing site data.</div>
+  </div>
+  <h3>info</h3>
+  <div class="card">
+    <div class="status"><span class="st" id="buildInfo">spend v1.0</span></div>
+    <div class="hint">a private spending log. no bank connection, no account, no judgment.</div>
+  </div>
+</aside>
+
+<section class="sheet" id="expenseSheet" role="dialog" aria-modal="true" aria-label="expense" aria-hidden="true" inert>
+  <h2 id="expenseSheetTitle">new expense</h2>
+  <form id="expenseForm">
+    <div class="field"><label for="amountInput">amount</label><div class="amount-row"><span class="sym" id="amountSymbol">$</span><input id="amountInput" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off"></div></div>
+    <div class="field"><div class="lbl">category</div><div class="cats" id="cats"></div></div>
+    <div class="field"><label for="expenseNote">note</label><input id="expenseNote" type="text" maxlength="140" placeholder="optional" autocomplete="off"></div>
+    <div class="field"><label for="expenseDate">date</label><input id="expenseDate" type="date"></div>
+    <div class="actions"><button type="button" class="chip danger" id="expenseDelete" hidden>delete</button><button type="button" class="chip" id="expenseCancel">cancel</button><button type="submit" class="chip solid" id="expenseSave">add</button></div>
+  </form>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+window.APP_CONFIG = {
+  ns: 'spend', title: 'spend', build: 'v1.0',
+  mottos: ['know where it goes', 'small amounts add up', 'look, then decide', 'money, in focus', 'no judgment', 'one number at a time', 'keep it honest']
+};
+</script>
+<script src="base.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+const CATEGORIES = ['food', 'transport', 'home', 'bills', 'fun', 'health', 'other'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'INR'];
+const S = App.settings;
+S.currency = CURRENCIES.includes(S.currency) ? S.currency : 'USD';
+S.budget = Math.max(0, +S.budget || 0);
+App.saveSettings();
+
+let expenses = App.store.get('expenses', []);
+if (!Array.isArray(expenses)) expenses = [];
+expenses = expenses.filter(e => e && +e.amount > 0).map(e => ({
+  id: typeof e.id === 'string' ? e.id : App.uid(),
+  amount: Math.round((+e.amount || 0) * 100) / 100,
+  category: CATEGORIES.includes(e.category) ? e.category : 'other',
+  note: String(e.note || '').slice(0, 140),
+  date: /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : App.dayKey(new Date()),
+  createdAt: +e.createdAt || Date.now(),
+  updatedAt: +e.updatedAt || +e.createdAt || Date.now()
+})).filter(e => e.amount > 0);
+let viewMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let editingId = null;
+let sheetCat = 'food';
+const saveExpenses = () => App.store.set('expenses', expenses);
+const todayKey = () => App.dayKey(new Date());
+
+function fmtMoney(n) {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: S.currency, maximumFractionDigits: 2 }).format(+n || 0);
+  } catch { return '$' + (+n || 0).toFixed(2); }
+}
+function symbol() {
+  try {
+    const parts = new Intl.NumberFormat(undefined, { style: 'currency', currency: S.currency }).formatToParts(0);
+    return (parts.find(p => p.type === 'currency') || {}).value || '$';
+  } catch { return '$'; }
+}
+function monthLabel(d) { return MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+function dateLabel(key) {
+  const d = App.parseDay(key);
+  const t = new Date();
+  if (key === App.dayKey(t)) return 'today';
+  const y = new Date(t); y.setDate(y.getDate() - 1);
+  if (key === App.dayKey(y)) return 'yesterday';
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase();
+}
+function dayTotal(rows) { return rows.reduce((n, e) => n + e.amount, 0); }
+
+function monthExpenses() {
+  const prefix = App.monthKey(viewMonth);
+  return expenses.filter(e => e.date.startsWith(prefix)).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
+}
+function render() {
+  const list = monthExpenses();
+  const total = list.reduce((n, e) => n + e.amount, 0);
+  const isCurrent = App.monthKey(viewMonth) === App.monthKey(new Date());
+  const todayTotal = isCurrent ? list.filter(e => e.date === todayKey()).reduce((n, e) => n + e.amount, 0) : 0;
+  $('#monthLabel').textContent = monthLabel(viewMonth);
+  $('#monthTotal').textContent = fmtMoney(total);
+  $('#nextMonth').disabled = App.monthKey(viewMonth) >= App.monthKey(new Date());
+  $('#sub').textContent = MONTHS[viewMonth.getMonth()] + ' · ' + list.length + (list.length === 1 ? ' entry' : ' entries');
+  const meta = [];
+  meta.push(list.length + (list.length === 1 ? ' entry' : ' entries'));
+  if (isCurrent) meta.push(fmtMoney(todayTotal) + ' today');
+  $('#summaryMeta').textContent = meta.join(' · ');
+  const budget = +S.budget || 0;
+  $('#budgetWrap').hidden = !(budget > 0);
+  if (budget > 0) {
+    const left = budget - total;
+    $('#budgetLeft').textContent = left >= 0 ? fmtMoney(left) + ' left' : 'over by ' + fmtMoney(-left);
+    $('#budgetLeft').classList.toggle('over', left < 0);
+    $('#budgetSpent').textContent = fmtMoney(total) + ' / ' + fmtMoney(budget);
+    $('#budgetFill').style.width = Math.min(100, total / budget * 100) + '%';
+  }
+  const groups = {};
+  list.forEach(e => { (groups[e.date] || (groups[e.date] = [])).push(e); });
+  const box = $('#groups');
+  box.replaceChildren();
+  Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(key => {
+    const g = document.createElement('div'); g.className = 'daygroup';
+    const head = document.createElement('div'); head.className = 'dayhead';
+    const d = document.createElement('span'); d.textContent = dateLabel(key);
+    const sum = document.createElement('span'); sum.className = 'sum'; sum.textContent = fmtMoney(dayTotal(groups[key]));
+    head.append(d, sum); g.appendChild(head);
+    groups[key].forEach(e => {
+      const row = document.createElement('div'); row.className = 'expense'; row.dataset.id = e.id;
+      const main = document.createElement('div'); main.className = 'expense-main';
+      const title = document.createElement('div'); title.className = 'expense-title'; title.textContent = e.note || e.category;
+      const meta = document.createElement('div'); meta.className = 'expense-meta';
+      if (e.note) { const cat = document.createElement('span'); cat.textContent = e.category; meta.appendChild(cat); }
+      main.append(title, meta);
+      const amount = document.createElement('div'); amount.className = 'expense-amount'; amount.textContent = fmtMoney(e.amount);
+      row.append(main, amount);
+      row.addEventListener('click', () => openExpense(e.id));
+      g.appendChild(row);
+    });
+    box.appendChild(g);
+  });
+  $('#empty').hidden = list.length > 0;
+  $('#currencySelect').value = S.currency;
+  $('#budgetInput').value = budget || '';
+  $('#amountSymbol').textContent = symbol();
+  App.syncMenuUI();
+  if ($('#expenseSheet').classList.contains('show')) renderCats();
+}
+
+function renderCats() {
+  const box = $('#cats');
+  box.replaceChildren(...CATEGORIES.map(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.cat = c; b.textContent = c;
+    b.setAttribute('aria-pressed', String(c === sheetCat));
+    b.addEventListener('click', () => { sheetCat = c; renderCats(); });
+    return b;
+  }));
+}
+
+function openExpense(id = null) {
+  App.closeMenu();
+  editingId = id;
+  const e = id ? expenses.find(x => x.id === id) : null;
+  $('#expenseSheetTitle').textContent = e ? 'edit expense' : 'new expense';
+  $('#amountInput').value = e ? String(e.amount) : '';
+  $('#expenseNote').value = e ? e.note : '';
+  $('#expenseDate').value = e ? e.date : todayKey();
+  $('#expenseDate').max = todayKey();
+  sheetCat = e ? e.category : 'food';
+  renderCats();
+  $('#expenseDelete').hidden = !e;
+  $('#expenseSave').textContent = e ? 'save' : 'add';
+  $('#amountSymbol').textContent = symbol();
+  document.body.classList.add('sheet-open');
+  $('#scrim').classList.add('show');
+  $('#expenseSheet').classList.add('show');
+  $('#expenseSheet').setAttribute('aria-hidden', 'false');
+  $('#expenseSheet').inert = false;
+  $('#appMain').inert = true;
+  setTimeout(() => $('#amountInput').focus({ preventScroll: true }), 60);
+}
+function closeExpense() {
+  const sh = $('#expenseSheet');
+  sh.classList.remove('show');
+  sh.setAttribute('aria-hidden', 'true');
+  sh.inert = true;
+  document.body.classList.remove('sheet-open');
+  $('#appMain').inert = false;
+  if (!$('#menu').classList.contains('show')) $('#scrim').classList.remove('show');
+  editingId = null;
+}
+function parseAmount(v) {
+  const raw = String(v || '').replace(/[^0-9.,-]/g, '').replace(',', '.');
+  const n = parseFloat(raw);
+  if (!isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+}
+function saveExpense() {
+  const amount = parseAmount($('#amountInput').value);
+  if (!amount) { $('#amountInput').focus(); App.toast('enter an amount'); return; }
+  const note = $('#expenseNote').value.trim().slice(0, 140);
+  let date = $('#expenseDate').value || todayKey();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) date = todayKey();
+  if (date > todayKey()) date = todayKey();
+  if (!CATEGORIES.includes(sheetCat)) sheetCat = 'other';
+  if (editingId) {
+    const e = expenses.find(x => x.id === editingId);
+    if (e) { e.amount = amount; e.category = sheetCat; e.note = note; e.date = date; e.updatedAt = Date.now(); }
+    saveExpenses(); closeExpense(); render(); App.toast('expense saved');
+  } else {
+    expenses.push({ id: App.uid(), amount, category: sheetCat, note, date, createdAt: Date.now(), updatedAt: Date.now() });
+    saveExpenses(); closeExpense(); render(); App.toast('expense added');
+  }
+}
+function deleteExpense() {
+  if (!editingId) return;
+  const e = expenses.find(x => x.id === editingId);
+  if (!e) return;
+  if (!confirm('delete this ' + fmtMoney(e.amount) + ' expense?')) return;
+  expenses = expenses.filter(x => x.id !== editingId);
+  saveExpenses(); closeExpense(); render(); App.toast('expense deleted');
+}
+
+$('#fab').addEventListener('click', () => openExpense());
+$('#expenseForm').addEventListener('submit', e => { e.preventDefault(); saveExpense(); });
+$('#expenseCancel').addEventListener('click', closeExpense);
+$('#expenseDelete').addEventListener('click', deleteExpense);
+$('#prevMonth').addEventListener('click', () => { viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1); render(); });
+$('#nextMonth').addEventListener('click', () => {
+  const next = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+  if (App.monthKey(next) <= App.monthKey(new Date())) { viewMonth = next; render(); }
+});
+$('#scrim').addEventListener('click', () => { if ($('#expenseSheet').classList.contains('show')) closeExpense(); });
+document.addEventListener('app:menuopen', () => closeExpense());
+$('#currencySelect').addEventListener('change', e => { S.currency = e.target.value; App.saveSettings(); render(); });
+$('#budgetInput').addEventListener('change', e => { S.budget = Math.max(0, +e.target.value || 0); App.saveSettings(); render(); });
+$('#exportBtn').addEventListener('click', () => {
+  App.download('spend-export.json', JSON.stringify({ app: 'spend', v: 1, expenses }, null, 2));
+  App.toast('expenses exported');
+});
+$('#csvBtn').addEventListener('click', () => {
+  const esc = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+  const rows = [['date', 'amount', 'category', 'note']].concat(expenses.slice().sort((a, b) => a.date.localeCompare(b.date)).map(e => [e.date, e.amount.toFixed(2), e.category, e.note]));
+  App.download('spend-export.csv', rows.map(r => r.map(esc).join(',')).join('\n'), 'text/csv');
+  App.toast('CSV exported');
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!d || !Array.isArray(d.expenses)) throw 0;
+      if (!confirm('replace all expenses in this browser with this backup?')) return;
+      expenses = d.expenses.filter(e => e && +e.amount > 0).map(e => ({
+        id: typeof e.id === 'string' ? e.id : App.uid(),
+        amount: Math.round((+e.amount || 0) * 100) / 100,
+        category: CATEGORIES.includes(e.category) ? e.category : 'other',
+        note: String(e.note || '').slice(0, 140),
+        date: /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : App.dayKey(new Date()),
+        createdAt: +e.createdAt || Date.now(),
+        updatedAt: +e.updatedAt || Date.now()
+      })).filter(e => e.amount > 0);
+      saveExpenses(); closeExpense(); render(); App.toast('imported ' + expenses.length + ' expenses');
+    } catch { App.toast('could not import that file'); }
+  };
+  r.readAsText(f);
+});
+$('#resetBtn').addEventListener('click', () => {
+  if (!confirm('delete all spending data and settings from this browser?')) return;
+  Object.keys(localStorage).filter(k => k.startsWith('spend.')).forEach(k => localStorage.removeItem(k));
+  location.reload();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if ($('#expenseSheet').classList.contains('show')) { closeExpense(); return; }
+    return;
+  }
+  const typing = /^(input|textarea|select)$/i.test(document.activeElement && document.activeElement.tagName || '');
+  if (!typing && e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey && !$('#expenseSheet').classList.contains('show')) {
+    e.preventDefault(); openExpense();
+  }
+});
+if (location.hash === '#new') {
+  setTimeout(() => openExpense(), 120);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+}
+render();
+window.__spend = { get expenses() { return expenses; }, get viewMonth() { return viewMonth; }, render, openExpense, fmtMoney };
+</script>
+</body>
+</html>

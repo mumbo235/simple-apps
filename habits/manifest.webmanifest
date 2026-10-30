@@ -1,0 +1,19 @@
+{
+  "name": "habits",
+  "short_name": "habits",
+  "description": "a quiet, local-first habit tracker.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#141414",
+  "theme_color": "#141414",
+  "shortcuts": [
+    { "name": "new habit", "short_name": "new", "url": "./#new", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
